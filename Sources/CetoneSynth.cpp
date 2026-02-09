@@ -2,6 +2,7 @@
 #include <math.h>
 
 #include "CetoneSynth.h"
+#include "CetoneSynthVoice.h"
 //#include "cetoneeditor.h"
 
 #if NOTE_RANGE == 1
@@ -71,22 +72,24 @@ CCetoneSynth::CCetoneSynth()
 	this->VelocityModStep = 0.f;
 	this->Ctrl1ModStep = 0.f;
 
-	for(int i = 0; i < 4; i++)
-		this->Oscs[i] = new CSynthOscillator();
+	// Initialize polyphonic voices
+	for (int i = 0; i < MAX_POLYPHONY; i++)
+		this->Voices[i] = new CetoneSynthVoice();
 
-	this->Oscs[1]->SetSyncDest(this->Oscs[0]);
-	this->Oscs[2]->SetSyncDest(this->Oscs[1]);
-	this->Oscs[0]->SetSyncDest(this->Oscs[2]);
+	this->activeVoiceCount = 0;
+	this->maxPolyphony = MAX_POLYPHONY;	// Default to maximum
 
-	for(int i = 0; i < 3; i++)
-		this->Envs[i] = new CSynthEnvelope();
-
-	this->Envs[0]->SetPreAttack(0.02f);
-	this->Envs[1]->SetPreAttack(0.002f);
-	this->Envs[2]->SetPreAttack(0.002f);
-
+	// Global LFOs (can be used for modulation)
 	for(int i = 0; i < 2; i++)
 		this->Lfos[i] = new CSynthLfo();
+
+	// Helper envelopes for TimeValue calculations (UI)
+	for(int i = 0; i < 3; i++)
+		this->HelperEnvs[i] = new CSynthEnvelope();
+
+	this->HelperEnvs[0]->SetPreAttack(0.02f);
+	this->HelperEnvs[1]->SetPreAttack(0.002f);
+	this->HelperEnvs[2]->SetPreAttack(0.002f);
 
 	this->MidiStack		= new CMidiStack();
 
@@ -111,14 +114,14 @@ CCetoneSynth::CCetoneSynth()
 
 CCetoneSynth::~CCetoneSynth()
 {
-	for(int i = 0; i < 4; i++)
-		delete this->Oscs[i];
-
-	for(int i = 0; i < 3; i++)
-		delete this->Envs[i];
+	for (int i = 0; i < MAX_POLYPHONY; i++)
+		delete this->Voices[i];
 
 	for(int i = 0; i < 2; i++)
 		delete this->Lfos[i];
+
+	for(int i = 0; i < 3; i++)
+		delete this->HelperEnvs[i];
 
 	delete this->MidiStack;
 
@@ -151,6 +154,7 @@ void CCetoneSynth::InitParameters()
 
 	this->ArpMode			=	-1;
 	this->ArpSpeed			=	20;
+	this->ArpPoly			=	false;
 
 	this->PortaMode			=	false;
 	this->PortaSpeed		=	0.1f;
@@ -219,6 +223,7 @@ void CCetoneSynth::InitParameters()
 
 	// Runtime
 
+	this->maxPolyphony = MAX_POLYPHONY;	// Initialize max polyphony to 16
 	this->CurrentDelta = 0;
 	this->CurrentNote = -1;
 	this->CurrentVelocity = 0;
@@ -416,6 +421,7 @@ void CCetoneSynth::ReadProgram(int prg)
 
 	this->ArpMode		=	p->ArpMode;
 	this->ArpSpeed		=	p->ArpSpeed;
+	this->ArpPoly		=	p->ArpPoly;
 
 	this->SetArpSpeed(this->ArpSpeed);
 
@@ -485,6 +491,7 @@ void CCetoneSynth::WriteProgram(int prg)
 
 	p->ArpMode		=	this->ArpMode;
 	p->ArpSpeed		=	this->ArpSpeed;
+	p->ArpPoly		=	this->ArpPoly;
 	
 	p->PortaMode	=	this->PortaMode;
 	p->PortaSpeed	=	this->PortaSpeed;

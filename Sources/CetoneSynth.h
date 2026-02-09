@@ -21,6 +21,11 @@
 #include "FilterButterworth24db.h"
 #include "MidiStack.h"
 
+#define MAX_POLYPHONY 16
+
+// Forward declaration
+class CetoneSynthVoice;
+
 class CCetoneSynth : public DISTRHO::Plugin
 {
 public:
@@ -158,9 +163,16 @@ private:
 
 	// Classes
 
-	CSynthOscillator*	Oscs[4];
-	CSynthEnvelope*		Envs[3];
+	// Polyphonic voices
+	CetoneSynthVoice*	Voices[MAX_POLYPHONY];
+	int					activeVoiceCount;
+	int					maxPolyphony;		// Current max polyphony setting (1-16)
+
+	// Legacy single-voice components (kept for global LFO and modulation)
 	CSynthLfo*			Lfos[2];
+
+	// Helper envelopes for TimeValue calculation (UI display)
+	CSynthEnvelope*		HelperEnvs[3];
 
 	CMidiStack*			MidiStack;
 	CFilterDirty*		FilterDirty;
@@ -192,6 +204,7 @@ private:
 
 	int					ArpMode;
 	int					ArpSpeed;
+	bool				ArpPoly;		// Polyphonic arpeggiator mode
 
 	bool				PortaMode;
 	float				PortaSpeed;
@@ -276,6 +289,12 @@ private:
 
 	void				NoteOn(int note, int vel);
 	void				NoteOff(int note, int vel);
+	void				Panic();		// MIDI panic - stop all voices
+
+	// Polyphony management
+	int					AllocateVoice(int note);
+	int					FindVoiceByNote(int note);
+	void				UpdateAllVoices();
 
 	void				TriggerFilterCounter();
 	void				UpdateFilters();

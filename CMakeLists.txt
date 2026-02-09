@@ -30,6 +30,11 @@ set (SRC_BACKEND
     Sources/SynthOscillator.cpp
 )
 
+set (SRC_POLYPHONY
+    Sources/CetoneSynthVoice.cpp
+    Sources/CetoneSynthPolyphony.cpp
+)
+
 dpf_add_plugin (${PROJECT_NAME}
     TARGETS vst2 vst3 lv2 clap jack
     FILES_DSP
@@ -37,6 +42,7 @@ dpf_add_plugin (${PROJECT_NAME}
         Sources/CetoneSynthDPF.cpp
         Sources/CetoneSynthMain.cpp
         Sources/CetoneSynthPlugin.cpp
+        ${SRC_POLYPHONY}
         ${SRC_BACKEND}
     FILES_UI
         Sources/CetoneUI.cpp

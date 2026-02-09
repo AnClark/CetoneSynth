@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include "CetoneSynth.h"
+#include "CetoneSynthVoice.h"
 
 void CCetoneSynth::process(float **inputs, float **outputs, VstInt32 sampleFrames)
 {
@@ -19,13 +20,6 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 	
 	int p0, p1, p2, delta, tdelta = 0;
 	float l, r;
- 
-	int opitch[4];
-	int opw[3];
-	float output;
-	float l_speed[2];
-	float o_val[3];
-	float v_vol[3], mEnv[2], mLfo[3], mMix[2];
 
 	while(sampleFrames > 0)
 	{
@@ -51,10 +45,11 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 
 		/****************************************************************************
 
-		Run starts
+		Run starts - Polyphonic Voice Mixing
 
 		****************************************************************************/
 		
+		// Update global cutoff smoothing
 		if(this->CutoffStep != 0.f)
 		{
 			this->Cutoff += this->CutoffStep;
@@ -77,26 +72,19 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 			}
 		}
 
-		int m_coarse = this->MainCoarse;
-		int m_fine = this->MainFine, itmp;
-
+		// Global parameters with modulation
 		float m_vol = this->Volume;
 		float m_cutoff = this->Cutoff;
 		float m_q = this->Resonance;
 		float m_mod = this->EnvMod;
 		float m_pan = this->Panning;
 
-		bool set_opw0 = false;
-		bool set_opw1 = false;
-		bool set_opw2 = false;
-		bool set_lfo0 = false;
-		bool set_lfo1 = false;
-
 		if(this->FilterCounter <= 0)
 			this->FilterCounter = FILTER_DELAY;
 		else
 			this->FilterCounter--;
 
+		// Update velocity and ctrl1 modulation smoothing
 		if(this->Ctrl1ModStep != 0.f)
 		{
 			this->Ctrl1Mod += this->Ctrl1ModStep;
@@ -141,286 +129,263 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 			}
 		}
 
-		if(this->CurrentNote == -1)
+		// Run global LFOs for modulation
+		float mLfo[3];
+		mLfo[0] = this->Lfos[0]->Run();
+		mLfo[1] = this->Lfos[1]->Run();
+		mLfo[2] = 0.0f;  // HFO output (will be set from current note's voice)
+
+		// Get modulation envelopes and HFO from current note's voice
+		// In monophonic original, there was one envelope; in polyphonic, use CurrentNote's voice
+		float mEnv[2] = {0.0f, 0.0f};
+		if (this->CurrentNote != -1)
 		{
-			l = r = 0.f;
+			// Find voice playing current note
+			for (int v = 0; v < this->maxPolyphony; v++)
+			{
+				if (this->Voices[v]->IsActive() && this->Voices[v]->GetNote() == this->CurrentNote)
+				{
+					mEnv[0] = this->Voices[v]->GetModEnvelope();
+					mLfo[2] = this->Voices[v]->GetHFO();  // Get HFO output from current voice
+					// Note: CetoneSynth has 3 envelopes, we only use first 2 for modulation
+					break;
+				}
+			}
 		}
-		else
+		
+		float mMix[2];
+		mMix[0] = mEnv[0] * mLfo[0];
+		mMix[1] = mEnv[1] * mLfo[1];  // For CetoneSynth, LFO1xLFO2
+
+		// Initialize voice modulation structure
+		VoiceModulation voiceMod;
+		voiceMod.mainPitch = 0;
+		voiceMod.mainCoarse = this->MainCoarse;
+		voiceMod.mainFine = this->MainFine;
+		for (int i = 0; i < 4; i++)
 		{
-			opw[0]		= this->VoicePulsewidth[0];
-			opw[1]		= this->VoicePulsewidth[1];
-			opw[2]		= this->VoicePulsewidth[2];
+			voiceMod.oscPitch[i] = 0;
+			voiceMod.oscVol[i] = 0.0f;
+			voiceMod.oscPw[i] = 0;
+		}
+		voiceMod.lfoSpeed[0] = voiceMod.lfoSpeed[1] = 0.0f;
+		voiceMod.lfoPitch[0] = voiceMod.lfoPitch[1] = 0.0f;
 
-			v_vol[0]	= this->Voice[0].Volume;
-			v_vol[1]	= this->Voice[1].Volume;
-			v_vol[2]	= this->Voice[2].Volume;
+		// Process global modulations (simplified for polyphony)
+		// Note: For full per-voice modulation, these would need to be inside each voice
+		for(int i = 0; i < 8; i++)
+		{
+			float am;
+			SynthModulation* mod = &(this->Modulations[i]);
 
-			l_speed[0]	= this->LfoSpeed[0];
-			l_speed[1]	= this->LfoSpeed[1];
+			if (mod->Source == MOD_SRC_NONE)
+				continue;
 
-			if (this->DoPorta)
+			switch(mod->Source)
 			{
-				this->PortaFrac += this->PortaStep;
-				itmp = this->PortaFrac >> 14;
-
-				if(this->PortaStep < 0)
-				{
-					if(itmp <= this->PortaPitch)
-					{
-						itmp = this->PortaPitch;
-						this->DoPorta = false;
-					}
-				}
-				else
-				{
-					if(itmp >= this->PortaPitch)
-					{
-						itmp = this->PortaPitch;
-						this->DoPorta = false;
-					}
-				}
-
-				this->CurrentPitch = itmp;
+			case MOD_SRC_VEL:			am = this->VelocityMod;		break;
+			case MOD_SRC_CTRL1:			am = this->Ctrl1Mod;		break;
+			case MOD_SRC_MENV1:			am = mEnv[0];				break;
+			case MOD_SRC_MENV2:			am = mEnv[1];				break;
+			case MOD_SRC_LFO1:			am = mLfo[0];				break;
+			case MOD_SRC_LFO2:			am = mLfo[1];				break;
+			case MOD_SRC_MENV1xLFO1:	am = mMix[0];				break;
+			case MOD_SRC_LFO1xLFO2:		am = mMix[1];				break;
+			case MOD_SRC_HFO:			am = mLfo[2];				break;  // HFO from current note's voice
+			default:					am = 0.f;					break;
 			}
 
-			opitch[0] = this->CurrentPitch + this->Voice[0].Coarse * 100 + this->Voice[0].Fine;
-			opitch[1] = this->CurrentPitch + this->Voice[1].Coarse * 100 + this->Voice[1].Fine;
-			opitch[2] = this->CurrentPitch + this->Voice[2].Coarse * 100 + this->Voice[2].Fine;
-			opitch[3] = this->CurrentPitch + this->Voice[3].Coarse * 100 + this->Voice[3].Fine;
+			am *= mod->Amount;
+			am *= mod->Multiplicator;
 
-			this->Oscs[3]->SetPitch(opitch[3] + m_coarse * 100 + m_fine);
-
-			mEnv[0] = this->Envs[1]->Run();
-			mEnv[1] = this->Envs[2]->Run();
-			mLfo[0] = this->Lfos[0]->Run();
-			mLfo[1] = this->Lfos[1]->Run();
-			mLfo[2] = this->Oscs[3]->Run();
-			mMix[0] = mEnv[0] * mLfo[0];
-			mMix[1] = mEnv[1] * mLfo[1];
-
-			for(int i = 0; i < 8; i++)
+			switch(mod->Destination)
 			{
-				float am;
-				SynthModulation* mod = &(this->Modulations[i]);
-
-				if (mod->Source == MOD_SRC_NONE)
-					continue;
-
-				switch(mod->Source)
-				{
-				case MOD_SRC_VEL:			am = this->VelocityMod;		break;
-				case MOD_SRC_CTRL1:			am = this->Ctrl1Mod;		break;
-				case MOD_SRC_MENV1:			am = mEnv[0];				break;
-				case MOD_SRC_MENV2:			am = mEnv[1];				break;
-				case MOD_SRC_LFO1:			am = mLfo[0];				break;
-				case MOD_SRC_LFO2:			am = mLfo[1];				break;
-				case MOD_SRC_MENV1xLFO1:	am = mMix[0];				break;
-				case MOD_SRC_LFO1xLFO2:		am = mMix[1];				break;
-				case MOD_SRC_HFO:			am = mLfo[2];				break;
-				}
-
-				am *= mod->Amount;
-				am *= mod->Multiplicator;
-
-				switch(mod->Destination)
-				{
-				default:
-					break;
-				case MOD_DEST_MAINVOL:
-					m_vol += am * 0.001f;
-					if(m_vol < 0.f)	
-						m_vol = 0.f;	
-					else if(m_vol > 10.f)	
-						m_vol = 10.f;
-					break;
-				case MOD_DEST_CUTOFF:
-					m_cutoff += am;
-					if(m_cutoff < 0.f) 
-						m_cutoff = 0.f;	
-					else if(m_cutoff > CCetoneSynth::SampleRate2)	
-						m_cutoff = CCetoneSynth::SampleRate2;
-					break;
-				case MOD_DEST_RESONANCE:
-					m_q += am * 0.001f;
-					if(m_q < 0.f)	
-						m_q = 0.f;	
-					else if(m_q > 1.f)	
-						m_q = 1.f;
-					break;
-				case MOD_DEST_PANNING:
-					m_pan += am * 0.001f;
-					if(m_pan < 0.f)	
-						m_pan = 0.f; 
-					else if(m_pan > 1.f)	
-						m_pan = 1.f;
-					break;
-				case MOD_DEST_MAINPITCH:
-					m_fine += truncate(am);
-					break;
-				case MOD_DEST_OSC1VOL:
-					v_vol[0] += am * 0.001f;
-					if(v_vol[0] < 0.f)	
-						v_vol[0] = 0.f;	
-					else if(v_vol[0] > 10.f)	
-						v_vol[0] = 10.f;
-					break;
-				case MOD_DEST_OSC2VOL:
-					v_vol[1] += am * 0.001f;
-					if(v_vol[1] < 0.f)	
-						v_vol[1] = 0.f;	
-					else if(v_vol[1] > 10.f)	
-						v_vol[1] = 10.f;
-					break;
-				case MOD_DEST_OSC3VOL:
-					v_vol[2] += am * 0.001f;
-					if(v_vol[2] < 0.f)	
-						v_vol[2] = 0.f;	
-					else if(v_vol[2] > 10.f)	
-						v_vol[2] = 10.f;
-					break;
-				case MOD_DEST_OSC1PITCH:
-					opitch[0] += truncate(am);
-					break;
-				case MOD_DEST_OSC2PITCH:
-					opitch[1] += truncate(am);
-					break;
-				case MOD_DEST_OSC3PITCH:
-					opitch[2] += truncate(am);
-					break;
-				case MOD_DEST_OSC1PW:
-					opw[0] += truncate(am * 6.5536f);
-					set_opw0 = true;
-					break;
-				case MOD_DEST_OSC2PW:
-					opw[1] += truncate(am * 6.5536f);
-					set_opw1 = true;
-					break;
-				case MOD_DEST_OSC3PW:
-					opw[2] += truncate(am * 6.5536f);
-					set_opw2 = true;
-					break;
-				case MOD_DEST_LFO1SPEED:
-					l_speed[0] += am;
-					set_lfo0 = true;
-					break;
-				case MOD_DEST_LFO2SPEED:
-					l_speed[1] += am;
-					set_lfo1 = true;
-					break;
-				case MOD_DEST_ENVMOD:
-					m_mod += am * 0.001f;
-					if(m_mod < -1.f)	
-						m_mod = -1.f; 
-					else if(m_mod > 1.f)	
-						m_mod = 1.f;
-					break;
-				}
-			}
-
-			if(set_opw0)
-				this->Oscs[0]->SetPw(opw[0]);
-			if(set_opw1)
-				this->Oscs[1]->SetPw(opw[1]);
-			if(set_opw2)
-				this->Oscs[2]->SetPw(opw[2]);
-			if(set_lfo0)
-				this->Lfos[0]->SetSpeed(l_speed[0]);
-			if(set_lfo1)
-				this->Lfos[1]->SetSpeed(l_speed[1]);
-
-			if(this->ArpMode != -1)
-			{
-				if(this->ArpPos >= this->C64Arps[this->ArpMode][15])
-					this->ArpPos = 0;
-
-				m_coarse += this->C64Arps[this->ArpMode][this->ArpPos];
-
-				this->ArpCounter--;
-
-				if(this->ArpCounter <= 0)
-				{
-					this->ArpCounter = this->ArpDelay;
-					this->ArpPos++;
-				}
-			}
-
-			output = 0.f;
-
-			float output_volume = this->Envs[0]->Run() * m_vol;
-
-			this->UpdateFilters(m_cutoff, m_q, m_mod);
-			
-			for(int i = 0; i < 3; i++)
-			{
-				opitch[i]	+= m_coarse * 100 + m_fine;
-				this->Oscs[i]->SetPitch(opitch[i]);
-				o_val[i]	= this->Oscs[i]->Run();
-			}
-
-			for(int i = 0; i < 3; i++)
-			{
-				float ftmp = o_val[i];
-
-				if(this->Voice[i].Ring)
-				{
-					switch(i)
-					{
-						case 0:
-							ftmp *= o_val[1];
-							break;
-						case 1:
-							ftmp *= o_val[2];
-							break;
-						case 2:
-							ftmp *= o_val[0];
-							break;
-					}
-				}
-				
-				ftmp = ftmp * v_vol[i];
-
-				if(ftmp > 1.f)
-					ftmp = 1.f;
-				else if(ftmp < -1.f)
-					ftmp = -1.f;
-
-				output += ftmp;
-			}
-
-			output *= 0.333333f;
-
-			switch(this->FilterType)
-			{
+			case MOD_DEST_MAINVOL:
+				m_vol += am * 0.001f;
+				m_vol = (m_vol < 0.f) ? 0.f : (m_vol > 10.f) ? 10.f : m_vol;
+				break;
+			case MOD_DEST_CUTOFF:
+				m_cutoff += am;
+				m_cutoff = (m_cutoff < 0.f) ? 0.f : (m_cutoff > CCetoneSynth::SampleRate2) ? CCetoneSynth::SampleRate2 : m_cutoff;
+				break;
+			case MOD_DEST_RESONANCE:
+				m_q += am * 0.001f;
+				m_q = (m_q < 0.f) ? 0.f : (m_q > 1.f) ? 1.f : m_q;
+				break;
+			case MOD_DEST_PANNING:
+				m_pan += am * 0.001f;
+				m_pan = (m_pan < 0.f) ? 0.f : (m_pan > 1.f) ? 1.f : m_pan;
+				break;
+			case MOD_DEST_ENVMOD:
+				m_mod += am * 0.001f;
+				m_mod = (m_mod < -1.f) ? -1.f : (m_mod > 1.f) ? 1.f : m_mod;
+				break;
+			case MOD_DEST_MAINPITCH:
+				voiceMod.mainPitch += (int)am;
+				break;
+			case MOD_DEST_OSC1VOL:
+				voiceMod.oscVol[0] += am * 0.001f;
+				break;
+			case MOD_DEST_OSC2VOL:
+				voiceMod.oscVol[1] += am * 0.001f;
+				break;
+			case MOD_DEST_OSC3VOL:
+				voiceMod.oscVol[2] += am * 0.001f;
+				break;
+			case MOD_DEST_OSC1PITCH:
+				voiceMod.oscPitch[0] += (int)am;
+				break;
+			case MOD_DEST_OSC2PITCH:
+				voiceMod.oscPitch[1] += (int)am;
+				break;
+			case MOD_DEST_OSC3PITCH:
+				voiceMod.oscPitch[2] += (int)am;
+				break;
+			case MOD_DEST_OSC1PW:
+				voiceMod.oscPw[0] += (int)(am * 6.5536f);
+				break;
+			case MOD_DEST_OSC2PW:
+				voiceMod.oscPw[1] += (int)(am * 6.5536f);
+				break;
+			case MOD_DEST_OSC3PW:
+				voiceMod.oscPw[2] += (int)(am * 6.5536f);
+				break;
+			case MOD_DEST_LFO1SPEED:
+				voiceMod.lfoSpeed[0] += am;
+				break;
+			case MOD_DEST_LFO2SPEED:
+				voiceMod.lfoSpeed[1] += am;
+				break;
 			default:
 				break;
-			case FTYPE_DIRTY:
-				output = this->FilterDirty->Run(output);
-				break;
-			case FTYPE_MOOG:
-				output = this->FilterMoog->Run(output);
-				break;
-			case FTYPE_MOOG2:
-				output = this->FilterMoog2->Run(output);
-				break;
-			case FTYPE_CH12DB:
-				output = this->FilterCh12db->Run(output);
-				break;
-			case FTYPE_303:
-				output = this->Filter303->Run(output);
-				break;
-			case FTYPE_8580:
-				output = this->Filter8580->Run(output);
-				break;
-			case FTYPE_BUDDA:
-				output = this->FilterBuddawert->Run(output);
-				break;
 			}
-
-			output *= output_volume;
-
-			l = ((1.f - m_pan) * output);
-			r = (m_pan * output);
 		}
+
+		// Apply LFO speed modulation to global LFOs
+		if (voiceMod.lfoSpeed[0] != 0.0f)
+		{
+			float modulatedSpeed = this->LfoSpeed[0] + voiceMod.lfoSpeed[0];
+			modulatedSpeed = (modulatedSpeed < 0.0f) ? 0.0f : modulatedSpeed;
+			this->Lfos[0]->SetSpeed(modulatedSpeed);
+		}
+		if (voiceMod.lfoSpeed[1] != 0.0f)
+		{
+			float modulatedSpeed = this->LfoSpeed[1] + voiceMod.lfoSpeed[1];
+			modulatedSpeed = (modulatedSpeed < 0.0f) ? 0.0f : modulatedSpeed;
+			this->Lfos[1]->SetSpeed(modulatedSpeed);
+		}
+
+		// Update filters with modulated parameters
+		this->UpdateFilters(m_cutoff, m_q, m_mod);
+
+		// Process arpeggiator (mono mode only - shared across all voices)
+		int arpOffset = 0;  // Semitone offset from arpeggiator
+		bool monoArpActive = (this->ArpMode != -1) && !this->ArpPoly;
+		
+		if (monoArpActive)
+		{
+			// Check if arpeggiator position needs to wrap
+			if (this->ArpPos >= this->C64Arps[this->ArpMode][15])
+				this->ArpPos = 0;
+
+			// Get current arpeggio offset in semitones
+			arpOffset = this->C64Arps[this->ArpMode][this->ArpPos];
+
+			// Update arpeggiator counter
+			this->ArpCounter--;
+			if (this->ArpCounter <= 0)
+			{
+				this->ArpCounter = this->ArpDelay;
+				this->ArpPos++;
+			}
+		}
+
+		// Mix all active voices
+		float output = 0.f;
+		int activeCount = 0;
+
+		// Determine which note to render in mono arpeggiator mode
+		int arpNote = this->CurrentNote;
+		bool monoArpNoteCheck = monoArpActive && (this->CurrentNote != -1);
+
+		for (int v = 0; v < this->maxPolyphony; v++)
+		{
+			if (this->Voices[v]->IsActive())
+			{
+				// Calculate arpeggio offset for this voice
+				int voiceArpOffset = 0;
+				
+				if (this->ArpPoly && this->ArpMode != -1)
+				{
+					// Polyphonic arpeggiator: each voice calculates its own offset
+					voiceArpOffset = this->Voices[v]->GetArpOffset(this->ArpMode, this->C64Arps);
+				}
+				else if (monoArpActive)
+				{
+					// Monophonic arpeggiator: only CurrentNote voice gets the offset
+					if (this->Voices[v]->GetNote() == arpNote)
+						voiceArpOffset = arpOffset;
+					else
+						continue;  // Skip other voices in mono arp mode
+				}
+
+				float voiceOutput = this->Voices[v]->Render(
+					this->Voice,
+					this->PortaMode,
+					this->PortaSpeed,
+					(int)this->PortaSamples,
+					&voiceMod,
+					voiceArpOffset
+				);
+				output += voiceOutput;
+				activeCount++;
+			}
+		}
+
+		// Normalize to prevent clipping when multiple voices are playing
+		// Use fixed normalization factor to avoid volume jumps when voice count changes
+		// Factor chosen to balance single-voice volume with polyphonic headroom
+		if (activeCount > 0)
+		{
+			// Divide by ~4.5 provides good balance:
+			// - Single voice has decent volume (comparable to original)
+			// - Multiple voices have headroom before clipping
+			output *= 0.22f;  // Approximately 1/4.5
+		}
+
+		// Apply global filter
+		switch(this->FilterType)
+		{
+		default:
+			break;
+		case FTYPE_DIRTY:
+			output = this->FilterDirty->Run(output);
+			break;
+		case FTYPE_MOOG:
+			output = this->FilterMoog->Run(output);
+			break;
+		case FTYPE_MOOG2:
+			output = this->FilterMoog2->Run(output);
+			break;
+		case FTYPE_CH12DB:
+			output = this->FilterCh12db->Run(output);
+			break;
+		case FTYPE_303:
+			output = this->Filter303->Run(output);
+			break;
+		case FTYPE_8580:
+			output = this->Filter8580->Run(output);
+			break;
+		case FTYPE_BUDDA:
+			output = this->FilterBuddawert->Run(output);
+			break;
+		}
+
+		// Apply global volume and panning
+		output *= m_vol;
+
+		l = ((1.f - m_pan) * output);
+		r = (m_pan * output);
 
 		/****************************************************************************
 
@@ -472,8 +437,7 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 	switch (status)
 	{
 	case 0x80:			// Note off
-		if (p1 == this->CurrentNote)
-			this->NoteOff(p1, p2);
+		this->NoteOff(p1, p2);
 		break;
 	case 0x90:			// Note on
 		if (p2 == 0)
@@ -530,8 +494,9 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 		case 83:		// Mod 4 Amount
 			this->setParameterAutomated(pMod4Amount, (float)p2 / 127.f);
 			break;
-		case 123:
-			this->CurrentNote	= -1;
+		case 120:		// All Sounds Off (MIDI panic)
+		case 123:		// All Notes Off (MIDI panic)
+			this->Panic();
 			break;
 		}
 		break;
@@ -543,59 +508,98 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 
 void CCetoneSynth::NoteOn(int note, int vel)
 {
-	int tmp;
-	bool porta = (this->PortaMode && (this->PortaSpeed != 0.f) && (this->CurrentNote != -1)) ? true : false;
+	// Allocate a voice for this note
+	int voiceIndex = this->AllocateVoice(note);
+	if (voiceIndex < 0)
+		return; // Failed to allocate (shouldn't happen)
 
-	this->CurrentNote		= note;
-	this->CurrentVelocity	= vel;
-	this->VelocityModEnd	= (float)vel / 127.f;
+	// Calculate target pitch for new note
+	int targetPitch = (note + NOTE_OFFSET) * 100;
+	
+	// Determine if we should use portamento
+	// Original behavior: portamento if there was a previous note (CurrentNote != -1)
+	// regardless of whether that note is still playing
+	bool usePorta = (this->PortaMode && (this->PortaSpeed != 0.f) && (this->CurrentNote != -1));
+	int fromPitch = usePorta ? this->CurrentPitch : targetPitch;
 
-	if(this->VelocityModEnd != this->VelocityMod)
+	// Update current note tracking (for portamento reference)
+	this->CurrentNote = note;
+	this->CurrentVelocity = vel;
+	
+	// Always update CurrentPitch to target (for next note's portamento reference)
+	// The voice will handle sliding from fromPitch to CurrentPitch if portamento is active
+	this->CurrentPitch = targetPitch;
+
+	// Update velocity modulation (global)
+	this->VelocityModEnd = (float)vel / 127.f;
+	if (this->VelocityModEnd != this->VelocityMod)
 	{
 		this->VelocityModStep = (this->VelocityModEnd - this->VelocityMod) * this->ModChangeSamples;
 	}
 	else
 		this->VelocityModStep = 0.f;
 
-
-	tmp = (note + NOTE_OFFSET) * 100;
-
-	if(porta)
+	// Trigger the voice
+	this->Voices[voiceIndex]->NoteOn(note, vel, usePorta, fromPitch, (int)this->PortaSamples);
+	this->Voices[voiceIndex]->UpdateEnvelopes(
+		this->EnvAttack[0], this->EnvHold[0], this->EnvDecay[0], this->EnvSustain[0], this->EnvRelease[0],
+		this->EnvAttack[1], this->EnvHold[1], this->EnvDecay[1], this->EnvSustain[1], this->EnvRelease[1],
+		this->EnvAttack[2], this->EnvHold[2], this->EnvDecay[2], this->EnvSustain[2], this->EnvRelease[2]
+	);
+	for (int lfo = 0; lfo < 2; lfo++)
 	{
-		this->PortaStep		= (int)(((tmp - this->CurrentPitch) / (this->PortaSamples)) * 16384.f + 0.5f);
-		this->PortaFrac     = this->CurrentPitch << 14;
-		this->PortaPitch	= tmp;
-	}
-	else
-	{
-		this->CurrentPitch = tmp;
-	}
-
-	for(int i = 0; i < 4; i++)
-	{
-		this->VoicePulsewidth[i] = this->Voice[i].Pw;
-		this->Oscs[i]->Set(this->VoicePulsewidth[i], this->Voice[i].Wave, this->Voice[i].Sync);
+		this->Voices[voiceIndex]->SetLfoParams(lfo, this->LfoSpeed[lfo], this->LfoPw[lfo], this->LfoWave[lfo], this->LfoTrigger[lfo]);
+		this->Voices[voiceIndex]->TriggerLfo(lfo);
 	}
 
+	// Initialize arpeggiator for this voice (polyphonic mode)
+	if (this->ArpPoly && this->ArpMode != -1)
+	{
+		this->Voices[voiceIndex]->InitArpeggiator(this->ArpDelay);
+	}
 
-	this->DoPorta		= porta;
-
-	this->Envs[0]->Gate(true);
-	this->Envs[1]->Gate(true);
-	this->Envs[2]->Gate(true);
-
-	this->Lfos[0]->Set(this->LfoSpeed[0], this->LfoPw[0], this->LfoWave[0], this->LfoTrigger[0]);
-	this->Lfos[1]->Set(this->LfoSpeed[1], this->LfoPw[1], this->LfoWave[1], this->LfoTrigger[1]);
-
-	this->Lfos[0]->Trigger();
-	this->Lfos[1]->Trigger();
+	// Increment age for all other active voices (for voice stealing)
+	for (int i = 0; i < this->maxPolyphony; i++)
+	{
+		if (i != voiceIndex)
+			this->Voices[i]->IncrementAge();
+	}
 }
 
 void CCetoneSynth::NoteOff(int note, int vel)
 {
-	this->Envs[0]->Gate(false);
-	this->Envs[1]->Gate(false);
-	this->Envs[2]->Gate(false);
+	// Find all voices playing this note and release them
+	for (int i = 0; i < this->maxPolyphony; i++)
+	{
+		if (this->Voices[i]->IsActive() && this->Voices[i]->GetNote() == note)
+		{
+			this->Voices[i]->NoteOff();
+		}
+	}
+	
+	// Do NOT clear CurrentNote - it should be preserved for portamento
+	// Original monophonic behavior: NoteOff only releases envelopes,
+	// CurrentNote stays for next note's portamento reference
+}
+
+void CCetoneSynth::Panic()
+{
+	// MIDI panic - immediately stop all voices
+	for (int i = 0; i < this->maxPolyphony; i++)
+	{
+		// Use Reset() instead of NoteOff() to immediately silence the voice
+		// This is the correct behavior for ALL_SOUNDS_OFF and ALL_NOTES_OFF
+		this->Voices[i]->Reset();
+	}
+
+	// Reset current note tracking and voice management state
+	this->CurrentNote = -1;
+	this->activeVoiceCount = 0;
+	
+	// Reset portamento state
+	this->DoPorta = false;
+	this->CurrentPitch = 0;
+	this->PortaPitch = 0;
 }
 
 void CCetoneSynth::Run(float* left, float* right)
@@ -702,8 +706,19 @@ void CCetoneSynth::SetPortaSpeed(float speed)
 
 void CCetoneSynth::UpdateEnvelopes()
 {
+	// Update all voices with new envelope parameters
+	for (int v = 0; v < MAX_POLYPHONY; v++)
+	{
+		this->Voices[v]->UpdateEnvelopes(
+			this->EnvAttack[0], this->EnvHold[0], this->EnvDecay[0], this->EnvSustain[0], this->EnvRelease[0],
+			this->EnvAttack[1], this->EnvHold[1], this->EnvDecay[1], this->EnvSustain[1], this->EnvRelease[1],
+			this->EnvAttack[2], this->EnvHold[2], this->EnvDecay[2], this->EnvSustain[2], this->EnvRelease[2]
+		);
+	}
+
+	// Also update helper envelopes for UI display
 	for(int i = 0; i < 3; i++)
-		this->Envs[i]->Set(this->EnvAttack[i], this->EnvHold[i], this->EnvDecay[i], this->EnvSustain[i], this->EnvRelease[i]);
+		this->HelperEnvs[i]->Set(this->EnvAttack[i], this->EnvHold[i], this->EnvDecay[i], this->EnvSustain[i], this->EnvRelease[i]);
 }
 
 void CCetoneSynth::resume()
@@ -711,18 +726,16 @@ void CCetoneSynth::resume()
 	//AudioEffectX::resume();
 
 #if ANALOGUE_BEHAVIOR == 0
-	this->Oscs[0]->Reset();
-	this->Oscs[1]->Reset();
-	this->Oscs[2]->Reset();
-	this->Oscs[3]->Reset();
+	for (int v = 0; v < MAX_POLYPHONY; v++)
+		this->Voices[v]->Reset();
 
 	this->Lfos[0]->Reset();
 	this->Lfos[1]->Reset();
 #endif
 	
-	this->Envs[0]->Reset();
-	this->Envs[1]->Reset();
-	this->Envs[2]->Reset();
+	// Reset all voices
+	for (int v = 0; v < MAX_POLYPHONY; v++)
+		this->Voices[v]->Reset();
 
 	this->Filter303->Reset();
 	this->Filter8580->Reset();
