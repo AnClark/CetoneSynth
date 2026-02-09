@@ -1,7 +1,9 @@
 #include <math.h>
 
 #include "CetoneSynth.h"
+#ifdef ENABLE_POLYPHONY
 #include "CetoneSynthVoice.h"
+#endif
 
 void CCetoneSynth::process(float **inputs, float **outputs, VstInt32 sampleFrames)
 {
@@ -20,6 +22,15 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 	
 	int p0, p1, p2, delta, tdelta = 0;
 	float l, r;
+
+#ifndef ENABLE_POLYPHONY
+	int opitch[4];
+	int opw[3];
+	float output;
+	float l_speed[2];
+	float o_val[3];
+	float v_vol[3], mEnv[2], mLfo[3], mMix[2];
+#endif
 
 	while(sampleFrames > 0)
 	{
@@ -43,6 +54,7 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 			}
 		}
 
+#ifdef ENABLE_POLYPHONY
 		/****************************************************************************
 
 		Run starts - Polyphonic Voice Mixing
@@ -392,6 +404,386 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 		Run ends
 
 		****************************************************************************/
+#else
+		/****************************************************************************
+
+		Run starts
+
+		****************************************************************************/
+		
+		if(this->CutoffStep != 0.f)
+		{
+			this->Cutoff += this->CutoffStep;
+
+			if(this->CutoffStep < 0.f)
+			{
+				if(this->Cutoff <= this->CutoffDest)
+				{
+					this->Cutoff		= this->CutoffDest;
+					this->CutoffStep	= 0.f;
+				}
+			}
+			else
+			{
+				if(this->Cutoff >= this->CutoffDest)
+				{
+					this->Cutoff		= this->CutoffDest;
+					this->CutoffStep	= 0.f;
+				}
+			}
+		}
+
+		int m_coarse = this->MainCoarse;
+		int m_fine = this->MainFine, itmp;
+
+		float m_vol = this->Volume;
+		float m_cutoff = this->Cutoff;
+		float m_q = this->Resonance;
+		float m_mod = this->EnvMod;
+		float m_pan = this->Panning;
+
+		bool set_opw0 = false;
+		bool set_opw1 = false;
+		bool set_opw2 = false;
+		bool set_lfo0 = false;
+		bool set_lfo1 = false;
+
+		if(this->FilterCounter <= 0)
+			this->FilterCounter = FILTER_DELAY;
+		else
+			this->FilterCounter--;
+
+		if(this->Ctrl1ModStep != 0.f)
+		{
+			this->Ctrl1Mod += this->Ctrl1ModStep;
+
+			if(this->Ctrl1ModStep < 0.f)
+			{
+				if(this->Ctrl1Mod <= this->Ctrl1ModEnd)
+				{
+					this->Ctrl1Mod = this->Ctrl1ModEnd;
+					this->Ctrl1ModStep = 0.f;
+				}
+			}
+			else
+			{
+				if(this->Ctrl1Mod >= this->Ctrl1ModEnd)
+				{
+					this->Ctrl1Mod = this->Ctrl1ModEnd;
+					this->Ctrl1ModStep = 0.f;
+				}
+			}
+		}
+
+		if(this->VelocityModStep != 0.f)
+		{
+			this->VelocityMod += this->VelocityModStep;
+
+			if(this->VelocityModStep < 0.f)
+			{
+				if(this->VelocityMod <= this->VelocityModEnd)
+				{
+					this->VelocityMod = this->VelocityModEnd;
+					this->VelocityModStep = 0.f;
+				}
+			}
+			else
+			{
+				if(this->VelocityMod >= this->VelocityModEnd)
+				{
+					this->VelocityMod = this->VelocityModEnd;
+					this->VelocityModStep = 0.f;
+				}
+			}
+		}
+
+		if(this->CurrentNote == -1)
+		{
+			l = r = 0.f;
+		}
+		else
+		{
+			opw[0]		= this->VoicePulsewidth[0];
+			opw[1]		= this->VoicePulsewidth[1];
+			opw[2]		= this->VoicePulsewidth[2];
+
+			v_vol[0]	= this->Voice[0].Volume;
+			v_vol[1]	= this->Voice[1].Volume;
+			v_vol[2]	= this->Voice[2].Volume;
+
+			l_speed[0]	= this->LfoSpeed[0];
+			l_speed[1]	= this->LfoSpeed[1];
+
+			if (this->DoPorta)
+			{
+				this->PortaFrac += this->PortaStep;
+				itmp = this->PortaFrac >> 14;
+
+				if(this->PortaStep < 0)
+				{
+					if(itmp <= this->PortaPitch)
+					{
+						itmp = this->PortaPitch;
+						this->DoPorta = false;
+					}
+				}
+				else
+				{
+					if(itmp >= this->PortaPitch)
+					{
+						itmp = this->PortaPitch;
+						this->DoPorta = false;
+					}
+				}
+
+				this->CurrentPitch = itmp;
+			}
+
+			opitch[0] = this->CurrentPitch + this->Voice[0].Coarse * 100 + this->Voice[0].Fine;
+			opitch[1] = this->CurrentPitch + this->Voice[1].Coarse * 100 + this->Voice[1].Fine;
+			opitch[2] = this->CurrentPitch + this->Voice[2].Coarse * 100 + this->Voice[2].Fine;
+			opitch[3] = this->CurrentPitch + this->Voice[3].Coarse * 100 + this->Voice[3].Fine;
+
+			this->Oscs[3]->SetPitch(opitch[3] + m_coarse * 100 + m_fine);
+
+			mEnv[0] = this->Envs[1]->Run();
+			mEnv[1] = this->Envs[2]->Run();
+			mLfo[0] = this->Lfos[0]->Run();
+			mLfo[1] = this->Lfos[1]->Run();
+			mLfo[2] = this->Oscs[3]->Run();
+			mMix[0] = mEnv[0] * mLfo[0];
+			mMix[1] = mEnv[1] * mLfo[1];
+
+			for(int i = 0; i < 8; i++)
+			{
+				float am;
+				SynthModulation* mod = &(this->Modulations[i]);
+
+				if (mod->Source == MOD_SRC_NONE)
+					continue;
+
+				switch(mod->Source)
+				{
+				case MOD_SRC_VEL:			am = this->VelocityMod;		break;
+				case MOD_SRC_CTRL1:			am = this->Ctrl1Mod;		break;
+				case MOD_SRC_MENV1:			am = mEnv[0];				break;
+				case MOD_SRC_MENV2:			am = mEnv[1];				break;
+				case MOD_SRC_LFO1:			am = mLfo[0];				break;
+				case MOD_SRC_LFO2:			am = mLfo[1];				break;
+				case MOD_SRC_MENV1xLFO1:	am = mMix[0];				break;
+				case MOD_SRC_LFO1xLFO2:		am = mMix[1];				break;
+				case MOD_SRC_HFO:			am = mLfo[2];				break;
+				}
+
+				am *= mod->Amount;
+				am *= mod->Multiplicator;
+
+				switch(mod->Destination)
+				{
+				default:
+					break;
+				case MOD_DEST_MAINVOL:
+					m_vol += am * 0.001f;
+					if(m_vol < 0.f)	
+						m_vol = 0.f;	
+					else if(m_vol > 10.f)	
+						m_vol = 10.f;
+					break;
+				case MOD_DEST_CUTOFF:
+					m_cutoff += am;
+					if(m_cutoff < 0.f) 
+						m_cutoff = 0.f;	
+					else if(m_cutoff > CCetoneSynth::SampleRate2)	
+						m_cutoff = CCetoneSynth::SampleRate2;
+					break;
+				case MOD_DEST_RESONANCE:
+					m_q += am * 0.001f;
+					if(m_q < 0.f)	
+						m_q = 0.f;	
+					else if(m_q > 1.f)	
+						m_q = 1.f;
+					break;
+				case MOD_DEST_PANNING:
+					m_pan += am * 0.001f;
+					if(m_pan < 0.f)	
+						m_pan = 0.f; 
+					else if(m_pan > 1.f)	
+						m_pan = 1.f;
+					break;
+				case MOD_DEST_MAINPITCH:
+					m_fine += truncate(am);
+					break;
+				case MOD_DEST_OSC1VOL:
+					v_vol[0] += am * 0.001f;
+					if(v_vol[0] < 0.f)	
+						v_vol[0] = 0.f;	
+					else if(v_vol[0] > 10.f)	
+						v_vol[0] = 10.f;
+					break;
+				case MOD_DEST_OSC2VOL:
+					v_vol[1] += am * 0.001f;
+					if(v_vol[1] < 0.f)	
+						v_vol[1] = 0.f;	
+					else if(v_vol[1] > 10.f)	
+						v_vol[1] = 10.f;
+					break;
+				case MOD_DEST_OSC3VOL:
+					v_vol[2] += am * 0.001f;
+					if(v_vol[2] < 0.f)	
+						v_vol[2] = 0.f;	
+					else if(v_vol[2] > 10.f)	
+						v_vol[2] = 10.f;
+					break;
+				case MOD_DEST_OSC1PITCH:
+					opitch[0] += truncate(am);
+					break;
+				case MOD_DEST_OSC2PITCH:
+					opitch[1] += truncate(am);
+					break;
+				case MOD_DEST_OSC3PITCH:
+					opitch[2] += truncate(am);
+					break;
+				case MOD_DEST_OSC1PW:
+					opw[0] += truncate(am * 6.5536f);
+					set_opw0 = true;
+					break;
+				case MOD_DEST_OSC2PW:
+					opw[1] += truncate(am * 6.5536f);
+					set_opw1 = true;
+					break;
+				case MOD_DEST_OSC3PW:
+					opw[2] += truncate(am * 6.5536f);
+					set_opw2 = true;
+					break;
+				case MOD_DEST_LFO1SPEED:
+					l_speed[0] += am;
+					set_lfo0 = true;
+					break;
+				case MOD_DEST_LFO2SPEED:
+					l_speed[1] += am;
+					set_lfo1 = true;
+					break;
+				case MOD_DEST_ENVMOD:
+					m_mod += am * 0.001f;
+					if(m_mod < -1.f)	
+						m_mod = -1.f; 
+					else if(m_mod > 1.f)	
+						m_mod = 1.f;
+					break;
+				}
+			}
+
+			if(set_opw0)
+				this->Oscs[0]->SetPw(opw[0]);
+			if(set_opw1)
+				this->Oscs[1]->SetPw(opw[1]);
+			if(set_opw2)
+				this->Oscs[2]->SetPw(opw[2]);
+			if(set_lfo0)
+				this->Lfos[0]->SetSpeed(l_speed[0]);
+			if(set_lfo1)
+				this->Lfos[1]->SetSpeed(l_speed[1]);
+
+			if(this->ArpMode != -1)
+			{
+				if(this->ArpPos >= this->C64Arps[this->ArpMode][15])
+					this->ArpPos = 0;
+
+				m_coarse += this->C64Arps[this->ArpMode][this->ArpPos];
+
+				this->ArpCounter--;
+
+				if(this->ArpCounter <= 0)
+				{
+					this->ArpCounter = this->ArpDelay;
+					this->ArpPos++;
+				}
+			}
+
+			output = 0.f;
+
+			float output_volume = this->Envs[0]->Run() * m_vol;
+
+			this->UpdateFilters(m_cutoff, m_q, m_mod);
+			
+			for(int i = 0; i < 3; i++)
+			{
+				opitch[i]	+= m_coarse * 100 + m_fine;
+				this->Oscs[i]->SetPitch(opitch[i]);
+				o_val[i]	= this->Oscs[i]->Run();
+			}
+
+			for(int i = 0; i < 3; i++)
+			{
+				float ftmp = o_val[i];
+
+				if(this->Voice[i].Ring)
+				{
+					switch(i)
+					{
+						case 0:
+							ftmp *= o_val[1];
+							break;
+						case 1:
+							ftmp *= o_val[2];
+							break;
+						case 2:
+							ftmp *= o_val[0];
+							break;
+					}
+				}
+				
+				ftmp = ftmp * v_vol[i];
+
+				if(ftmp > 1.f)
+					ftmp = 1.f;
+				else if(ftmp < -1.f)
+					ftmp = -1.f;
+
+				output += ftmp;
+			}
+
+			output *= 0.333333f;
+
+			switch(this->FilterType)
+			{
+			default:
+				break;
+			case FTYPE_DIRTY:
+				output = this->FilterDirty->Run(output);
+				break;
+			case FTYPE_MOOG:
+				output = this->FilterMoog->Run(output);
+				break;
+			case FTYPE_MOOG2:
+				output = this->FilterMoog2->Run(output);
+				break;
+			case FTYPE_CH12DB:
+				output = this->FilterCh12db->Run(output);
+				break;
+			case FTYPE_303:
+				output = this->Filter303->Run(output);
+				break;
+			case FTYPE_8580:
+				output = this->Filter8580->Run(output);
+				break;
+			case FTYPE_BUDDA:
+				output = this->FilterBuddawert->Run(output);
+				break;
+			}
+
+			output *= output_volume;
+
+			l = ((1.f - m_pan) * output);
+			r = (m_pan * output);
+		}
+
+		/****************************************************************************
+
+		Run ends
+
+		****************************************************************************/
+#endif
 
 		if (replace)
 		{
@@ -437,7 +829,12 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 	switch (status)
 	{
 	case 0x80:			// Note off
+#ifdef ENABLE_POLYPHONY
 		this->NoteOff(p1, p2);
+#else
+	if (p1 == this->CurrentNote)
+		this->NoteOff(p1, p2);
+#endif
 		break;
 	case 0x90:			// Note on
 		if (p2 == 0)
@@ -494,10 +891,16 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 		case 83:		// Mod 4 Amount
 			this->setParameterAutomated(pMod4Amount, (float)p2 / 127.f);
 			break;
+#ifdef ENABLE_POLYPHONY
 		case 120:		// All Sounds Off (MIDI panic)
 		case 123:		// All Notes Off (MIDI panic)
 			this->Panic();
 			break;
+#else
+		case 123:
+			this->CurrentNote	= -1;
+			break;
+#endif
 		}
 		break;
 	case 0xc0:			// Program change
@@ -508,6 +911,7 @@ void CCetoneSynth::HandleMidi(int p0, int p1, int p2)
 
 void CCetoneSynth::NoteOn(int note, int vel)
 {
+#ifdef ENABLE_POLYPHONY
 	// Allocate a voice for this note
 	int voiceIndex = this->AllocateVoice(note);
 	if (voiceIndex < 0)
@@ -564,10 +968,59 @@ void CCetoneSynth::NoteOn(int note, int vel)
 		if (i != voiceIndex)
 			this->Voices[i]->IncrementAge();
 	}
+#else
+	int tmp;
+	bool porta = (this->PortaMode && (this->PortaSpeed != 0.f) && (this->CurrentNote != -1)) ? true : false;
+
+	this->CurrentNote		= note;
+	this->CurrentVelocity	= vel;
+	this->VelocityModEnd	= (float)vel / 127.f;
+
+	if(this->VelocityModEnd != this->VelocityMod)
+	{
+		this->VelocityModStep = (this->VelocityModEnd - this->VelocityMod) * this->ModChangeSamples;
+	}
+	else
+		this->VelocityModStep = 0.f;
+
+
+	tmp = (note + NOTE_OFFSET) * 100;
+
+	if(porta)
+	{
+		this->PortaStep		= (int)(((tmp - this->CurrentPitch) / (this->PortaSamples)) * 16384.f + 0.5f);
+		this->PortaFrac     = this->CurrentPitch << 14;
+		this->PortaPitch	= tmp;
+	}
+	else
+	{
+		this->CurrentPitch = tmp;
+	}
+
+	for(int i = 0; i < 4; i++)
+	{
+		this->VoicePulsewidth[i] = this->Voice[i].Pw;
+		this->Oscs[i]->Set(this->VoicePulsewidth[i], this->Voice[i].Wave, this->Voice[i].Sync);
+	}
+
+
+	this->DoPorta		= porta;
+
+	this->Envs[0]->Gate(true);
+	this->Envs[1]->Gate(true);
+	this->Envs[2]->Gate(true);
+
+	this->Lfos[0]->Set(this->LfoSpeed[0], this->LfoPw[0], this->LfoWave[0], this->LfoTrigger[0]);
+	this->Lfos[1]->Set(this->LfoSpeed[1], this->LfoPw[1], this->LfoWave[1], this->LfoTrigger[1]);
+
+	this->Lfos[0]->Trigger();
+	this->Lfos[1]->Trigger();
+#endif
 }
 
 void CCetoneSynth::NoteOff(int note, int vel)
 {
+#ifdef ENABLE_POLYPHONY
 	// Find all voices playing this note and release them
 	for (int i = 0; i < this->maxPolyphony; i++)
 	{
@@ -580,8 +1033,14 @@ void CCetoneSynth::NoteOff(int note, int vel)
 	// Do NOT clear CurrentNote - it should be preserved for portamento
 	// Original monophonic behavior: NoteOff only releases envelopes,
 	// CurrentNote stays for next note's portamento reference
+#else
+	this->Envs[0]->Gate(false);
+	this->Envs[1]->Gate(false);
+	this->Envs[2]->Gate(false);
+#endif
 }
 
+#ifdef ENABLE_POLYPHONY
 void CCetoneSynth::Panic()
 {
 	// MIDI panic - immediately stop all voices
@@ -601,6 +1060,7 @@ void CCetoneSynth::Panic()
 	this->CurrentPitch = 0;
 	this->PortaPitch = 0;
 }
+#endif
 
 void CCetoneSynth::Run(float* left, float* right)
 {
@@ -706,6 +1166,7 @@ void CCetoneSynth::SetPortaSpeed(float speed)
 
 void CCetoneSynth::UpdateEnvelopes()
 {
+#ifdef ENABLE_POLYPHONY
 	// Update all voices with new envelope parameters
 	for (int v = 0; v < MAX_POLYPHONY; v++)
 	{
@@ -715,10 +1176,15 @@ void CCetoneSynth::UpdateEnvelopes()
 			this->EnvAttack[2], this->EnvHold[2], this->EnvDecay[2], this->EnvSustain[2], this->EnvRelease[2]
 		);
 	}
-
-	// Also update helper envelopes for UI display
+#endif
+	
 	for(int i = 0; i < 3; i++)
+#ifdef ENABLE_POLYPHONY
+		// Also update helper envelopes for UI display
 		this->HelperEnvs[i]->Set(this->EnvAttack[i], this->EnvHold[i], this->EnvDecay[i], this->EnvSustain[i], this->EnvRelease[i]);
+#else
+		this->Envs[i]->Set(this->EnvAttack[i], this->EnvHold[i], this->EnvDecay[i], this->EnvSustain[i], this->EnvRelease[i]);
+#endif
 }
 
 void CCetoneSynth::resume()
@@ -726,16 +1192,29 @@ void CCetoneSynth::resume()
 	//AudioEffectX::resume();
 
 #if ANALOGUE_BEHAVIOR == 0
+#ifdef ENABLE_POLYPHONY
 	for (int v = 0; v < MAX_POLYPHONY; v++)
 		this->Voices[v]->Reset();
+#else
+	this->Oscs[0]->Reset();
+	this->Oscs[1]->Reset();
+	this->Oscs[2]->Reset();
+	this->Oscs[3]->Reset();
+#endif	// ENABLE_POLYPHONY
 
 	this->Lfos[0]->Reset();
 	this->Lfos[1]->Reset();
 #endif
-	
+
+#ifdef ENABLE_POLYPHONY
 	// Reset all voices
 	for (int v = 0; v < MAX_POLYPHONY; v++)
 		this->Voices[v]->Reset();
+#else
+	this->Envs[0]->Reset();
+	this->Envs[1]->Reset();
+	this->Envs[2]->Reset();
+#endif
 
 	this->Filter303->Reset();
 	this->Filter8580->Reset();

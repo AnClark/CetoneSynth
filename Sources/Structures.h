@@ -19,6 +19,7 @@ struct SynthModulation
 	float			Multiplicator;
 };
 
+#ifdef ENABLE_POLYPHONY
 // Modulation values to pass to voice rendering
 struct VoiceModulation
 {
@@ -31,6 +32,7 @@ struct VoiceModulation
 	float			lfoSpeed[2];	// LFO speed modulation (2 LFOs)
 	float			lfoPitch[2];	// LFO pitch modulation amount
 };
+#endif
 
 struct SynthProgram
 {
@@ -55,7 +57,9 @@ struct SynthProgram
 
 	int				ArpMode;
 	int				ArpSpeed;
+#ifdef ENABLE_POLYPHONY
 	bool			ArpPoly;		// Polyphonic arpeggiator (each voice has independent arp)
+#endif
 
 	// Portamento
 
@@ -106,9 +110,11 @@ enum PARAMETERS
 
 	pArpMode,		// 11
 	pArpSpeed,
+#ifdef ENABLE_POLYPHONY
 	pArpPoly,		// Polyphonic arpeggiator mode (0=mono, 1=poly)
+#endif
 
-	pOsc1Coarse,	// 14
+	pOsc1Coarse,	// 14 (if polyphony enabled) or 13
 	pOsc1Fine,
 	pOsc1Wave,
 	pOsc1Pw,
@@ -116,7 +122,7 @@ enum PARAMETERS
 	pOsc1Ring,
 	pOsc1Sync,
 
-	pOsc2Coarse,	// 20
+	pOsc2Coarse,	// 20 (if polyphony enabled) or 19
 	pOsc2Fine,
 	pOsc2Wave,
 	pOsc2Pw,
@@ -124,7 +130,7 @@ enum PARAMETERS
 	pOsc2Ring,
 	pOsc2Sync,
 
-	pOsc3Coarse,	// 27
+	pOsc3Coarse,	// 27 (if polyphony enabled) or 26
 	pOsc3Fine,
 	pOsc3Wave,
 	pOsc3Pw,
@@ -132,40 +138,40 @@ enum PARAMETERS
 	pOsc3Ring,
 	pOsc3Sync,
 
-	pEnv1A,			// 34
+	pEnv1A,			// 34 (if polyphony enabled) or 33
 	pEnv1H,
 	pEnv1D,
 	pEnv1S,
 	pEnv1R,
 
-	pEnv2A,			// 39
+	pEnv2A,			// 39 (if polyphony enabled) or 38
 	pEnv2H,
 	pEnv2D,
 	pEnv2S,
 	pEnv2R,
 
-	pEnv3A,			// 44
+	pEnv3A,			// 44 (if polyphony enabled) or 43
 	pEnv3H,	
 	pEnv3D,
 	pEnv3S,
 	pEnv3R,
 
-	pLfo1Speed,		// 49
+	pLfo1Speed,		// 49 (if polyphony enabled) or 48
 	pLfo1Wave,
 	pLfo1Pw,
 	pLfo1Trig,
 
-	pLfo2Speed,		// 53
+	pLfo2Speed,		// 53 (if polyphony enabled) or 52
 	pLfo2Wave,
 	pLfo2Pw,
 	pLfo2Trig,
 
-	pHfoCoarse,		// 57
+	pHfoCoarse,		// 57 (if polyphony enabled) or 56
 	pHfoFine,
 	pHfoWave,
 	pHfoPw,
 
-	pMod1Src,		// 61
+	pMod1Src,		// 61 (if polyphony enabled) or 60
 	pMod1Dest,
 	pMod1Amount,
 	pMod1Mul,
@@ -207,7 +213,9 @@ enum PARAMETERS
 
 	pFilterMod,
 
+#ifdef ENABLE_POLYPHONY
 	pMaxPolyphony,	// Maximum number of polyphonic voices (1-16)
+#endif
 
 	pParameters
 };
