@@ -44,6 +44,8 @@ void CCetoneSynth::initParameter(uint32_t index, Parameter& parameter)
 	case pOsc3Ring:
 
 	case pLfo1Trig:
+	case pLfo2Trig:
+
 #ifdef ENABLE_POLYPHONY
 	case pArpPoly:
 #endif

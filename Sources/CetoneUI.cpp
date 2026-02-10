@@ -13,6 +13,7 @@ CCetoneUI::CCetoneUI()
 	, fImgKnob(Art::knobData, Art::knobWidth, Art::knobHeight, kImageFormatBGRA)
 	, fImgSwitchButton_ON(Art::buttons_onData, Art::buttons_onWidth, Art::buttons_onHeight, kImageFormatBGR)
 	, fImgSwitchButton_OFF(Art::buttons_offData, Art::buttons_offWidth, Art::buttons_offHeight, kImageFormatBGR)
+    , fImgTransparent(Art::transparentData, Art::transparentWidth, Art::transparentHeight, kImageFormatBGRA)
 {
 	/* Initialize NanoVG font and text buffer */
 	NanoVG::FontId font = fNanoText.createFontFromMemory("Source Sans Regular", Fonts::SourceSans3_RegularData, Fonts::SourceSans3_RegularDataSize, false);
@@ -144,6 +145,46 @@ CCetoneUI::CCetoneUI()
 	_createSwitchButton(fBtnLfo2Trigger, pLfo2Trig, 656, 260);
 
 	_createSwitchButton(fBtnGlideState, pPortaMode, 716, 150);
+
+    /* ImGui instance (popup menus, subwindows, etc.) */
+    fImGuiInstance = new ImGuiUI(getTopLevelWidget(), this);
+
+    /* "About" button (by clicking the plugin logo) */
+    _createHiddenButton(fBtnAbout, BTN_ABOUT, Size<uint>(118, 25), Point<int>(0, 0));
+
+    /* Popup menu button on params which has constant value sets */
+
+    _createHiddenButton(fBtnOsc1Waveform, pOsc1Wave, Size<uint>(45, 10 + 2), Point<int>(10 + 48 * 2, 200 + 2));
+    _createHiddenButton(fBtnOsc2Waveform, pOsc2Wave, Size<uint>(45, 10 + 2), Point<int>(10 + 48 * 2, 200 + 2 + 110));
+    _createHiddenButton(fBtnOsc3Waveform, pOsc3Wave, Size<uint>(45, 10 + 2), Point<int>(10 + 48 * 2, 200 + 2 + 110 * 2));
+
+    _createHiddenButton(fBtnFilterType, pFilterType, Size<uint>(45, 10 + 2), Point<int>(466, 96 - 4));
+    _createHiddenButton(fBtnFilterMode, pFilterMode, Size<uint>(45, 10 + 2), Point<int>(466 + 48, 96 - 4));
+	
+    _createHiddenButton(fBtnLfo1Waveform, pLfo1Wave, Size<uint>(45, 10 + 2), Point<int>(514 + 48, 200 + 2));
+    _createHiddenButton(fBtnLfo2Waveform, pLfo2Wave, Size<uint>(45, 10 + 2), Point<int>(514 + 48, 200 + 2 + 110));
+    _createHiddenButton(fBtnHfoWaveform, pHfoWave, Size<uint>(45, 10 + 2), Point<int>(514 + 48 * 2, 200 + 2 + 110 * 2));
+
+    _createHiddenButton(fBtnArpMode, pArpMode, Size<uint>(45, 10 + 2), Point<int>(716, 200 + 2 + 110));
+
+	// TODO: Set to right positions!
+    _createHiddenButton(fBtnMod1Src, pMod1Src, Size<uint>(45, 10 + 2), Point<int>(10, 528 + 2));
+    _createHiddenButton(fBtnMod2Src, pMod2Src, Size<uint>(45, 10 + 2), Point<int>(210, 528 + 2));
+    _createHiddenButton(fBtnMod3Src, pMod3Src, Size<uint>(45, 10 + 2), Point<int>(418, 528 + 2));
+    _createHiddenButton(fBtnMod4Src, pMod4Src, Size<uint>(45, 10 + 2), Point<int>(622, 528 + 2));
+    _createHiddenButton(fBtnMod5Src, pMod5Src, Size<uint>(45, 10 + 2), Point<int>(10, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod6Src, pMod6Src, Size<uint>(45, 10 + 2), Point<int>(210, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod7Src, pMod7Src, Size<uint>(45, 10 + 2), Point<int>(418, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod8Src, pMod8Src, Size<uint>(45, 10 + 2), Point<int>(622, 528 + 2 + 110));
+
+    _createHiddenButton(fBtnMod1Dest, pMod1Dest, Size<uint>(45, 10 + 2), Point<int>(10 + 48, 528 + 2));
+    _createHiddenButton(fBtnMod2Dest, pMod2Dest, Size<uint>(45, 10 + 2), Point<int>(210 + 48, 528 + 2));
+    _createHiddenButton(fBtnMod3Dest, pMod3Dest, Size<uint>(45, 10 + 2), Point<int>(430 + 48, 528 + 2));
+    _createHiddenButton(fBtnMod4Dest, pMod4Dest, Size<uint>(45, 10 + 2), Point<int>(650 + 48, 528 + 2));
+    _createHiddenButton(fBtnMod5Dest, pMod5Dest, Size<uint>(45, 10 + 2), Point<int>(10 + 48, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod6Dest, pMod6Dest, Size<uint>(45, 10 + 2), Point<int>(210 + 48, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod7Dest, pMod7Dest, Size<uint>(45, 10 + 2), Point<int>(418 + 48, 528 + 2 + 110));
+    _createHiddenButton(fBtnMod8Dest, pMod8Dest, Size<uint>(45, 10 + 2), Point<int>(622 + 48, 528 + 2 + 110));
 }
 
 void CCetoneUI::parameterChanged(uint32_t index, float value)
@@ -491,14 +532,92 @@ void CCetoneUI::parameterChanged(uint32_t index, float value)
 
 void CCetoneUI::imageButtonClicked(ImageButton* button, int)
 {
-#if 0
-    switch (button->getId()) {
-    case BTN_PANIC: {
-        panic();
-        break;
+    DISTRHO_SAFE_ASSERT_RETURN(fImGuiInstance, )
+
+    switch (button->getId())
+    {
+        case BTN_ABOUT:
+        {
+            fImGuiInstance->isAboutWindowOpen = !fImGuiInstance->isAboutWindowOpen;
+            break;
+        }
+        case pOsc1Wave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnOsc1Waveform->getAbsolutePos().getX(), fBtnOsc1Waveform->getAbsolutePos().getY() + fBtnOsc1Waveform->getHeight());
+            fImGuiInstance->requestMenuId = pOsc1Wave;
+            break;
+        }
+        case pOsc2Wave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnOsc2Waveform->getAbsolutePos().getX(), fBtnOsc2Waveform->getAbsolutePos().getY() + fBtnOsc2Waveform->getHeight());
+            fImGuiInstance->requestMenuId = pOsc2Wave;
+            break;
+        }
+        case pOsc3Wave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnOsc3Waveform->getAbsolutePos().getX(), fBtnOsc3Waveform->getAbsolutePos().getY() + fBtnOsc3Waveform->getHeight());
+            fImGuiInstance->requestMenuId = pOsc3Wave;
+            break;
+        }
+        case pFilterType:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnFilterType->getAbsolutePos().getX(), fBtnFilterType->getAbsolutePos().getY() + fBtnFilterType->getHeight());
+            fImGuiInstance->requestMenuId = pFilterType;
+            break;
+        }
+        case pFilterMode:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnFilterMode->getAbsolutePos().getX(), fBtnFilterMode->getAbsolutePos().getY() + fBtnFilterMode->getHeight());
+            fImGuiInstance->requestMenuId = pFilterMode;
+            break;
+        }
+        case pLfo1Wave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnLfo1Waveform->getAbsolutePos().getX(), fBtnLfo1Waveform->getAbsolutePos().getY() + fBtnLfo1Waveform->getHeight());
+            fImGuiInstance->requestMenuId = pLfo1Wave;
+            break;
+        }
+        case pLfo2Wave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnLfo2Waveform->getAbsolutePos().getX(), fBtnLfo2Waveform->getAbsolutePos().getY() + fBtnLfo2Waveform->getHeight());
+            fImGuiInstance->requestMenuId = pLfo2Wave;
+            break;
+        }
+        case pHfoWave:
+        {
+            fImGuiInstance->menuPos = ImVec2(fBtnHfoWaveform->getAbsolutePos().getX(), fBtnHfoWaveform->getAbsolutePos().getY() + fBtnHfoWaveform->getHeight());
+            fImGuiInstance->requestMenuId = pHfoWave;
+            break;
+        }
+        case pArpMode:
+        {
+			// NOTE: CetoneSynth's window size is large enough, so I specify a fixed position for Arp Mode menu.
+            fImGuiInstance->menuPos = ImVec2(fBtnArpMode->getAbsolutePos().getX() - fBtnArpMode->getWidth() + 2, fBtnArpMode->getAbsolutePos().getY() + fBtnArpMode->getHeight());
+            fImGuiInstance->requestMenuId = pArpMode;
+            break;
+        }
+        // NOTICE: For those buttons below, no need to specify menu position. Let Dear ImGui decide menu's position.
+        case pMod1Src:
+        case pMod2Src:
+        case pMod3Src:
+        case pMod4Src:
+        case pMod5Src:
+        case pMod6Src:
+        case pMod7Src:
+        case pMod8Src:
+        case pMod1Dest:
+        case pMod2Dest:
+        case pMod3Dest:
+        case pMod4Dest:
+        case pMod5Dest:
+        case pMod6Dest:
+        case pMod7Dest:
+        case pMod8Dest:
+        {
+            fImGuiInstance->requestMenuId = button->getId();
+            break;
+        }
     }
-    }
-#endif
 }
 
 void CCetoneUI::imageSwitchClicked(ImageSwitch* button, bool down)
@@ -587,7 +706,7 @@ void CCetoneUI::onDisplay()
 	{
 		// Type
 		std::snprintf(fLabelBuffer, 32, "%s", _filterType2Str(_pf2i(fKnobFilterType->getValue(), FTYPE_MAX)));
-		fNanoText.textBox(466, 96, 47.0f, fLabelBuffer);
+		fNanoText.textBox(466 - 1, 96, 48.0f, fLabelBuffer);
 
 		// Mode
 		// FIXME: Some filter types does not support setting mode.

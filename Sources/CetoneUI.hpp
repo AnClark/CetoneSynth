@@ -4,6 +4,8 @@
 #include "ImageWidgets.hpp"
 #include "NanoVG.hpp"
 
+#include "Widgets/ImGui_UI.hpp"
+
 using DGL_NAMESPACE::ImageAboutWindow;
 using DGL_NAMESPACE::ImageButton;
 using DGL_NAMESPACE::ImageKnob;
@@ -55,12 +57,19 @@ private:
 	NanoVG fNanoText;
 	char fLabelBuffer[32 + 1];
 
+    // -------------------------------------------------------------------
+    // Dear ImGui Instance
+
+    ScopedPointer<ImGuiUI> fImGuiInstance;
+    friend class ImGuiUI;
+
 	// -------------------------------------------------------------------
 	// Image resources
 
 	Image fImgBackground;
 	Image fImgKnob;
 	Image fImgSwitchButton_ON, fImgSwitchButton_OFF;
+    Image fImgTransparent;
 
 	// -------------------------------------------------------------------
 	// Widgets
@@ -102,6 +111,21 @@ private:
 	ScopedPointer<ImageSwitch> fBtnGlideState;
 	ScopedPointer<ImageSwitch> fBtnLfo1Trigger, fBtnLfo2Trigger;
 
+    // -------------------------------------------------------------------
+    // Buttons for opening Dear ImGui UIs (popup menus, windows, etc.)
+
+    ScopedPointer<ImageButton> fBtnAbout;
+
+    ScopedPointer<ImageButton> fBtnOsc1Waveform, fBtnOsc2Waveform, fBtnOsc3Waveform;
+    ScopedPointer<ImageButton> fBtnFilterType, fBtnFilterMode;
+    ScopedPointer<ImageButton> fBtnLfo1Waveform, fBtnLfo2Waveform, fBtnHfoWaveform;
+    ScopedPointer<ImageButton> fBtnArpMode;
+
+    ScopedPointer<ImageButton> fBtnMod1Src, fBtnMod2Src, fBtnMod3Src, fBtnMod4Src;
+	ScopedPointer<ImageButton> fBtnMod5Src, fBtnMod6Src, fBtnMod7Src, fBtnMod8Src;
+    ScopedPointer<ImageButton> fBtnMod1Dest, fBtnMod2Dest, fBtnMod3Dest, fBtnMod4Dest;
+	ScopedPointer<ImageButton> fBtnMod5Dest, fBtnMod6Dest, fBtnMod7Dest, fBtnMod8Dest;
+
 	// -------------------------------------------------------------------
 	// Helpers
 
@@ -109,6 +133,7 @@ private:
 	void _createSlider(ScopedPointer<ImageSlider>& slider, uint32_t paramId, uint startPosX, uint startPosY, uint endPosX, uint endPosY, float step, bool inverted = false);
 	void _createSwitchButton(ScopedPointer<ImageSwitch>& switchButton, uint32_t paramId, uint absolutePosX, uint absolutePosY);
 	void _createButton(ScopedPointer<ImageButton>& button, uint id, Image& imageNormal, Image& imagePressed, uint absolutePosX, uint absolutePosY);
+    void _createHiddenButton(ScopedPointer<ImageButton>& button, uint id, Size<uint> size, Point<int> absolutePos);
 
 	const char* _wave2Str(int wave);
 	const char* _OscWave2Str(int wave);
@@ -136,5 +161,6 @@ private:
 // Button IDs
 
 constexpr uint BTN_PANIC = d_cconst('p', 'n', 'i', 'c');
+constexpr uint BTN_ABOUT = d_cconst('a', 'b', 't', '.');
 
 // -----------------------------------------------------------------------
