@@ -6,6 +6,12 @@
 
 #include "CetoneUI.hpp" // For class CCetoneUI
 
+#ifdef ENABLE_POLYPHONY
+static const char* SYNTH_TYPE_STRING = "polyphonic";
+#else
+static const char* SYNTH_TYPE_STRING = "monophonic";
+#endif
+
 void ImGuiUI::onImGuiDisplay()
 {
     double scaleFactor = getScaleFactor() * userScaling;
@@ -23,7 +29,7 @@ void ImGuiUI::onImGuiDisplay()
             ImGui::Begin("About " DISTRHO_PLUGIN_NAME, &isAboutWindowOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize);
             {
                 ImGui::SeparatorText("Cetone Synth");
-                ImGui::Text("Deluxe monophonic analogue-style synthesizer, by Neotec Software.");
+                ImGui::Text("Deluxe %s analogue-style synthesizer, by Neotec Software.", SYNTH_TYPE_STRING);
                 ImGui::Text("Copyright © 2007, Neotec Software.");
                 ImGui::Text("Copyright © 2024-2026, AnClark Liu <clarklaw4701@qq.com>.");
 
