@@ -110,11 +110,8 @@ enum PARAMETERS
 
 	pArpMode,		// 11
 	pArpSpeed,
-#ifdef ENABLE_POLYPHONY
-	pArpPoly,		// Polyphonic arpeggiator mode (0=mono, 1=poly)
-#endif
 
-	pOsc1Coarse,	// 14 (if polyphony enabled) or 13
+	pOsc1Coarse,	// 13
 	pOsc1Fine,
 	pOsc1Wave,
 	pOsc1Pw,
@@ -122,7 +119,7 @@ enum PARAMETERS
 	pOsc1Ring,
 	pOsc1Sync,
 
-	pOsc2Coarse,	// 20 (if polyphony enabled) or 19
+	pOsc2Coarse,	// 20
 	pOsc2Fine,
 	pOsc2Wave,
 	pOsc2Pw,
@@ -130,7 +127,7 @@ enum PARAMETERS
 	pOsc2Ring,
 	pOsc2Sync,
 
-	pOsc3Coarse,	// 27 (if polyphony enabled) or 26
+	pOsc3Coarse,	// 27
 	pOsc3Fine,
 	pOsc3Wave,
 	pOsc3Pw,
@@ -138,40 +135,40 @@ enum PARAMETERS
 	pOsc3Ring,
 	pOsc3Sync,
 
-	pEnv1A,			// 34 (if polyphony enabled) or 33
+	pEnv1A,			// 34
 	pEnv1H,
 	pEnv1D,
 	pEnv1S,
 	pEnv1R,
 
-	pEnv2A,			// 39 (if polyphony enabled) or 38
+	pEnv2A,			// 39
 	pEnv2H,
 	pEnv2D,
 	pEnv2S,
 	pEnv2R,
 
-	pEnv3A,			// 44 (if polyphony enabled) or 43
+	pEnv3A,			// 44
 	pEnv3H,	
 	pEnv3D,
 	pEnv3S,
 	pEnv3R,
 
-	pLfo1Speed,		// 49 (if polyphony enabled) or 48
+	pLfo1Speed,		// 49
 	pLfo1Wave,
 	pLfo1Pw,
 	pLfo1Trig,
 
-	pLfo2Speed,		// 53 (if polyphony enabled) or 52
+	pLfo2Speed,		// 53
 	pLfo2Wave,
 	pLfo2Pw,
 	pLfo2Trig,
 
-	pHfoCoarse,		// 57 (if polyphony enabled) or 56
+	pHfoCoarse,		// 57
 	pHfoFine,
 	pHfoWave,
 	pHfoPw,
 
-	pMod1Src,		// 61 (if polyphony enabled) or 60
+	pMod1Src,		// 61
 	pMod1Dest,
 	pMod1Amount,
 	pMod1Mul,
@@ -215,6 +212,7 @@ enum PARAMETERS
 
 #ifdef ENABLE_POLYPHONY
 	pMaxPolyphony,	// Maximum number of polyphonic voices (1-16)
+	pArpPoly,		// Polyphonic arpeggiator mode (0=mono, 1=poly)
 #endif
 
 	pParameters
