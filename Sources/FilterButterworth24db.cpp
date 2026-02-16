@@ -1,7 +1,7 @@
 #include <math.h>
 #include "CetoneSynth.h"
 
-#define BUDDA_Q_SCALE 40.f
+#define BUDDA_Q_SCALE 20.f
 
 #include "FilterButterworth24db.h"
 
@@ -105,6 +105,12 @@ float CFilterButterworth24db::Run(float input)
 
 	this->history4 = this->history3;
 	this->history3 = new_hist;
+
+	// Soft clipping to prevent output overflow at high resonance
+	if (output > 1.f)
+		output = 1.f + tanhf(output - 1.f) * 0.5f;
+	else if (output < -1.f)
+		output = -1.f + tanhf(output + 1.f) * 0.5f;
 
 	return output;
 }
