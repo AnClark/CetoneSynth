@@ -183,7 +183,7 @@ void ImGuiUI::onImGuiDisplay()
         if (ImGui::MenuItem("Ch12db")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_CH12DB, FTYPE_MAX)); }
         if (ImGui::MenuItem("x0x (303)")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_303, FTYPE_MAX)); }
         if (ImGui::MenuItem("8580")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_8580, FTYPE_MAX)); }
-        if (ImGui::MenuItem("Bw24db (Budda)")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_BUDDA, FTYPE_MAX)); }
+        if (ImGui::MenuItem("Bw24db (Butterworth)")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_BUDDA, FTYPE_MAX)); }
         ImGui::Separator();
         if (ImGui::MenuItem("No Filter")) { _triggerParamUpdate(pFilterType, ui->_pi2f(FTYPE_NONE, FTYPE_MAX)); }
         ImGui::EndPopup();
