@@ -177,7 +177,7 @@ const char* CCetoneUI::_modSrc2str(int val)
 		return "MEnv 1";
 		break;
 	case MOD_SRC_MENV2:
-		return "MEnv";
+		return "MEnv 2";
 		break;
 	case MOD_SRC_LFO1:
 		return "LFO 1";
