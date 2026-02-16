@@ -20,7 +20,8 @@ public:
 	int				GetNote() const { return noteNumber; }
 	int				GetAge() const { return voiceAge; }
 	float			GetEnvelopeLevel() const;
-	float			GetModEnvelope() const { return modEnvValue; }	// Get modulation envelope value
+	float			GetModEnvelope() const { return modEnvValue; }	// Get modulation envelope 1 value
+	float			GetModEnvelope2() const { return modEnv2Value; }	// Get modulation envelope 2 value (CetoneSynth has 3 envelopes)
 	float			GetHFO() const { return hfoOutput; }			// Get HFO (4th oscillator) output
 
 	// Note events
@@ -77,8 +78,9 @@ private:
 	float				velocityModStep;
 	float				velocityModEnd;
 
-	// Modulation envelope value (updated each sample)
-	float				modEnvValue;
+	// Modulation envelope values (updated each sample)
+	float				modEnvValue;		// Envelope 1 (for MOD_SRC_MENV1)
+	float				modEnv2Value;		// Envelope 2 (for MOD_SRC_MENV2, CetoneSynth only)
 
 	// HFO output (4th oscillator used as high-frequency modulation source)
 	float				hfoOutput;

@@ -157,17 +157,17 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 			{
 				if (this->Voices[v]->IsActive() && this->Voices[v]->GetNote() == this->CurrentNote)
 				{
-					mEnv[0] = this->Voices[v]->GetModEnvelope();
+					mEnv[0] = this->Voices[v]->GetModEnvelope();	// Envelope 1 (MOD_SRC_MENV1)
+					mEnv[1] = this->Voices[v]->GetModEnvelope2();	// Envelope 2 (MOD_SRC_MENV2)
 					mLfo[2] = this->Voices[v]->GetHFO();  // Get HFO output from current voice
-					// Note: CetoneSynth has 3 envelopes, we only use first 2 for modulation
 					break;
 				}
 			}
 		}
 		
 		float mMix[2];
-		mMix[0] = mEnv[0] * mLfo[0];
-		mMix[1] = mEnv[1] * mLfo[1];  // For CetoneSynth, LFO1xLFO2
+		mMix[0] = mEnv[0] * mLfo[0];  // MENV1 * LFO1 (for MOD_SRC_MENV1xLFO1)
+		mMix[1] = mEnv[1] * mLfo[1];  // MENV2 * LFO2 (for MOD_SRC_LFO1xLFO2 - note: naming inconsistency in original design)
 
 		// Initialize voice modulation structure
 		VoiceModulation voiceMod;
