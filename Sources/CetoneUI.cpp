@@ -709,9 +709,20 @@ void CCetoneUI::onDisplay()
 		fNanoText.textBox(466 - 1, 96, 48.0f, fLabelBuffer);
 
 		// Mode
-		// FIXME: Some filter types does not support setting mode.
+		// NOTE: Some filter types does not support setting mode.
 		const auto _filterMode = _pf2i(fKnobFilterMode->getValue(), FMODE_MAX);
-		std::snprintf(fLabelBuffer, 32, "%s", _filterMode2str(_filterMode));
+		switch (_pf2i(fKnobFilterType->getValue(), FTYPE_MAX))
+		{
+		case FTYPE_DIRTY:
+		case FTYPE_MOOG2:
+		case FTYPE_CH12DB:
+		case FTYPE_8580:
+			std::snprintf(fLabelBuffer, 32, "%s", _filterMode2str(_filterMode));
+			break;
+		default:
+			std::snprintf(fLabelBuffer, 32, "Low");
+			break;
+		}
 		fNanoText.textBox(466 + 48, 96, 45.0f, fLabelBuffer);
 
 		// Cutoff
