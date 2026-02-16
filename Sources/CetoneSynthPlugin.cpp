@@ -2,6 +2,9 @@
 
 //#include "aeffguieditor.h"
 #include "CetoneSynth.h"
+#ifdef ENABLE_POLYPHONY
+#include "CetoneSynthVoice.h"
+#endif
 
 extern bool TablesBuilt;
 
@@ -206,6 +209,9 @@ void CCetoneSynth::getParameterDisplay(VstInt32 index, char* text)
 
 	case pArpMode:		arp2str(p->ArpMode, text); break;
 	case pArpSpeed:		int2string(p->ArpSpeed, text, kVstMaxParamStrLen); break;
+#ifdef ENABLE_POLYPHONY
+	case pArpPoly:		bool2string(p->ArpPoly, text); break;
+#endif
 
 	case pOsc1Coarse:	int2string(p->Voice[0].Coarse, text, kVstMaxParamStrLen); break;
 	case pOsc2Coarse:	int2string(p->Voice[1].Coarse, text, kVstMaxParamStrLen); break;
@@ -308,6 +314,10 @@ void CCetoneSynth::getParameterDisplay(VstInt32 index, char* text)
 	case pMod8Mul:		int2string((int)p->Modulations[7].Multiplicator, text, kVstMaxParamStrLen); break;
 
 	case pFilterMod:	myfloat2string(p->EnvMod, text); break;
+
+#ifdef ENABLE_POLYPHONY
+	case pMaxPolyphony:	int2string(this->maxPolyphony, text, kVstMaxParamStrLen); break;
+#endif
 	}
 }
 
@@ -335,6 +345,9 @@ void CCetoneSynth::getParameterName(VstInt32 index, char* text)
 
 	case pArpMode:		vst_strncpy(text, "A.Mode", kVstMaxParamStrLen);	break;
 	case pArpSpeed:		vst_strncpy(text, "A.Speed", kVstMaxParamStrLen);	break;
+#ifdef ENABLE_POLYPHONY
+	case pArpPoly:		vst_strncpy(text, "A.Poly", kVstMaxParamStrLen);	break;
+#endif
 
 	case pOsc1Coarse:	vst_strncpy(text, "Coarse 1", kVstMaxParamStrLen);	break;
 	case pOsc2Coarse:	vst_strncpy(text, "Coarse 2", kVstMaxParamStrLen);	break;
@@ -437,6 +450,10 @@ void CCetoneSynth::getParameterName(VstInt32 index, char* text)
 	case pMod8Mul:		vst_strncpy(text, "M8 Mul.", kVstMaxParamStrLen);	break;
 
 	case pFilterMod:	vst_strncpy(text, "F.Param.", kVstMaxParamStrLen);	break;
+
+#ifdef ENABLE_POLYPHONY
+	case pMaxPolyphony:	vst_strncpy(text, "Max Poly", kVstMaxParamStrLen);	break;
+#endif
 	}
 }
 
@@ -455,7 +472,17 @@ void CCetoneSynth::setParameter(VstInt32 index, float value)
 	case pCoarse:	this->MainCoarse = p->Coarse = c_val2coarse(value); break;
 	case pFine:		this->MainFine = p->Fine = c_val2fine(value); break;
 
-	case pFilterType:	this->FilterType = p->FilterType = pf2i(value, FTYPE_MAX); break;
+	case pFilterType:	
+		this->FilterType = p->FilterType = pf2i(value, FTYPE_MAX); 
+#ifdef ENABLE_POLYPHONY
+		// Sync filter type to all voices
+		for (int v = 0; v < MAX_POLYPHONY; v++)
+		{
+			this->Voices[v]->SetFilterType(this->FilterType);
+		}
+#endif
+		this->SetFilterMode(this->FilterMode); 
+		break;
 	case pFilterMode:	this->SetFilterMode(pf2i(value, FMODE_MAX)); break;
 
 	case pCutoff:		p->Cutoff = c_val2cutoff(value); this->SetCutoffSave(p->Cutoff); break;
@@ -466,6 +493,9 @@ void CCetoneSynth::setParameter(VstInt32 index, float value)
 
 	case pArpMode:		this->ArpMode = p->ArpMode = pf2i(value, ARP_MAX + 1) - 1; break;
 	case pArpSpeed:		this->ArpSpeed = p->ArpSpeed = (int)(value * 500.f + 0.5f); this->SetArpSpeed(this->ArpSpeed); break;
+#ifdef ENABLE_POLYPHONY
+	case pArpPoly:		this->ArpPoly = p->ArpPoly = c_val2bool(value); break;
+#endif
 
 	case pOsc1Coarse:	this->Voice[0].Coarse = p->Voice[0].Coarse = c_val2coarse(value); break;
 	case pOsc2Coarse:	this->Voice[1].Coarse = p->Voice[1].Coarse = c_val2coarse(value); break;
@@ -566,6 +596,15 @@ void CCetoneSynth::setParameter(VstInt32 index, float value)
 	case pMod8Mul:		this->Modulations[7].Multiplicator = p->Modulations[7].Multiplicator = floorf(value * 100.f + 0.5f); break;
 
 	case pFilterMod:	this->EnvMod = p->EnvMod = (value - 0.5f) * 2.f; break;
+
+#ifdef ENABLE_POLYPHONY
+	case pMaxPolyphony:
+		// Direct integer value (1-16), no mapping needed
+		this->maxPolyphony = (int)(value + 0.5f); // Round to nearest integer
+		if (this->maxPolyphony < 1) this->maxPolyphony = 1;
+		if (this->maxPolyphony > MAX_POLYPHONY) this->maxPolyphony = MAX_POLYPHONY;
+		break;
+#endif
 	}
 
 #if 0
@@ -604,6 +643,9 @@ float CCetoneSynth::getParameter(VstInt32 index) const
 
 	case pArpMode:		ret = pi2f(p->ArpMode + 1, ARP_MAX + 1); break;
 	case pArpSpeed:		ret = p->ArpSpeed / 500.f; break;
+#ifdef ENABLE_POLYPHONY
+	case pArpPoly:		ret = c_bool2val(p->ArpPoly); break;
+#endif
 
 	case pOsc1Coarse:	ret = c_coarse2val(p->Voice[0].Coarse); break;
 	case pOsc2Coarse:	ret = c_coarse2val(p->Voice[1].Coarse); break;
@@ -703,6 +745,10 @@ float CCetoneSynth::getParameter(VstInt32 index) const
 	case pMod7Mul:		ret = p->Modulations[6].Multiplicator / 100.f; break;
 	case pMod8Mul:		ret = p->Modulations[7].Multiplicator / 100.f; break;
 	case pFilterMod:	ret = (p->EnvMod + 1.f) / 2.f; break;
+
+#ifdef ENABLE_POLYPHONY
+	case pMaxPolyphony:	ret = (float)this->maxPolyphony; break; // Direct integer value
+#endif
 	}
 
 	return ret;

@@ -19,6 +19,21 @@ struct SynthModulation
 	float			Multiplicator;
 };
 
+#ifdef ENABLE_POLYPHONY
+// Modulation values to pass to voice rendering
+struct VoiceModulation
+{
+	int				mainPitch;		// Main pitch modulation (affects all oscillators)
+	int				mainCoarse;		// Main coarse tuning (semitones)
+	int				mainFine;		// Main fine tuning (cents)
+	int				oscPitch[4];	// Per-oscillator pitch modulation (4 oscillators)
+	float			oscVol[4];		// Per-oscillator volume modulation
+	int				oscPw[4];		// Per-oscillator pulse width modulation
+	float			lfoSpeed[2];	// LFO speed modulation (2 LFOs)
+	float			lfoPitch[2];	// LFO pitch modulation amount
+};
+#endif
+
 struct SynthProgram
 {
 	char			Name[64];
@@ -42,6 +57,9 @@ struct SynthProgram
 
 	int				ArpMode;
 	int				ArpSpeed;
+#ifdef ENABLE_POLYPHONY
+	bool			ArpPoly;		// Polyphonic arpeggiator (each voice has independent arp)
+#endif
 
 	// Portamento
 
@@ -191,6 +209,11 @@ enum PARAMETERS
 	pMod8Mul,
 
 	pFilterMod,
+
+#ifdef ENABLE_POLYPHONY
+	pMaxPolyphony,	// Maximum number of polyphonic voices (1-16)
+	pArpPoly,		// Polyphonic arpeggiator mode (0=mono, 1=poly)
+#endif
 
 	pParameters
 };

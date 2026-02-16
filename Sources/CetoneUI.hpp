@@ -126,6 +126,14 @@ private:
     ScopedPointer<ImageButton> fBtnMod1Dest, fBtnMod2Dest, fBtnMod3Dest, fBtnMod4Dest;
 	ScopedPointer<ImageButton> fBtnMod5Dest, fBtnMod6Dest, fBtnMod7Dest, fBtnMod8Dest;
 
+    // -------------------------------------------------------------------
+    // Special parameters' storage (not controlled by knobs and switches)
+
+#ifdef ENABLE_POLYPHONY
+    uint32_t fMaxPolyphony;
+    bool fArpPoly;
+#endif
+
 	// -------------------------------------------------------------------
 	// Helpers
 

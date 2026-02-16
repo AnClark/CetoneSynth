@@ -22,6 +22,7 @@ public:
 	float	Run();
 	
 	void	Sync();
+	void	ProcessSync();  // Process hard sync - reset target oscillator phase
 	void	SetSync(bool sync);
 	void	SetSyncDest(CSynthOscillator* osc);
 
@@ -49,4 +50,5 @@ private:
 
 	bool DoSync;
 	CSynthOscillator* SyncOsc;
+	int PrevIndexInt;  // Previous index for sync detection
 };

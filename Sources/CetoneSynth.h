@@ -21,6 +21,14 @@
 #include "FilterButterworth24db.h"
 #include "MidiStack.h"
 
+#ifdef ENABLE_POLYPHONY
+#define MAX_POLYPHONY 16
+
+
+// Forward declaration
+class CetoneSynthVoice;
+#endif
+
 class CCetoneSynth : public DISTRHO::Plugin
 {
 public:
@@ -158,9 +166,23 @@ private:
 
 	// Classes
 
+#ifdef ENABLE_POLYPHONY
+	// Polyphonic voices
+	CetoneSynthVoice*	Voices[MAX_POLYPHONY];
+	int					activeVoiceCount;
+	int					maxPolyphony;		// Current max polyphony setting (1-16)
+#else
 	CSynthOscillator*	Oscs[4];
 	CSynthEnvelope*		Envs[3];
+#endif
+
+	// Legacy single-voice components (kept for global LFO and modulation)
 	CSynthLfo*			Lfos[2];
+
+#ifdef ENABLE_POLYPHONY
+	// Helper envelopes for TimeValue calculation (UI display)
+	CSynthEnvelope*		HelperEnvs[3];
+#endif
 
 	CMidiStack*			MidiStack;
 	CFilterDirty*		FilterDirty;
@@ -192,6 +214,9 @@ private:
 
 	int					ArpMode;
 	int					ArpSpeed;
+#ifdef ENABLE_POLYPHONY
+	bool				ArpPoly;		// Polyphonic arpeggiator mode
+#endif
 
 	bool				PortaMode;
 	float				PortaSpeed;
@@ -276,6 +301,16 @@ private:
 
 	void				NoteOn(int note, int vel);
 	void				NoteOff(int note, int vel);
+#ifdef ENABLE_POLYPHONY
+	void				Panic();		// MIDI panic - stop all voices
+#endif
+
+#ifdef ENABLE_POLYPHONY
+	// Polyphony management
+	int					AllocateVoice(int note);
+	int					FindVoiceByNote(int note);
+	void				UpdateAllVoices();
+#endif
 
 	void				TriggerFilterCounter();
 	void				UpdateFilters();

@@ -16,6 +16,7 @@ CSynthOscillator::CSynthOscillator(void)
 	
 	this->SyncOsc = NULL;
 	this->DoSync = false;
+	this->PrevIndexInt = 0;
 }
 
 CSynthOscillator::~CSynthOscillator(void)
@@ -118,6 +119,23 @@ void CSynthOscillator::Sync()
 {
 }
 
+void CSynthOscillator::ProcessSync()
+{
+	// Hard sync: if this oscillator has sync enabled,
+	// check if phase wrapped around and reset target oscillator
+	if (this->DoSync && this->SyncOsc != NULL)
+	{
+		// Detect phase wraparound: current index < previous index
+		// (because of the mask operation in Run())
+		if (this->IndexInt < this->PrevIndexInt)
+		{
+			// Reset target oscillator phase to 0
+			this->SyncOsc->IndexInt = 0;
+			this->SyncOsc->IndexFrac = 0;
+		}
+	}
+}
+
 void CSynthOscillator::SetSync(bool sync)
 {
 	this->DoSync = sync;
@@ -131,7 +149,8 @@ void CSynthOscillator::SetSyncDest(CSynthOscillator *osc)
 float CSynthOscillator::Run()
 {
 	int sr = this->ShiftRegister;
-
+	// Save previous index for sync detection
+	this->PrevIndexInt = this->IndexInt;
 	int sample0, sample1, onow;
     float interpolate, out0, out1;
 
