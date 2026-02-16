@@ -197,7 +197,6 @@ void ImGuiUI::onImGuiDisplay()
 
         ImGui::SeparatorText("Filter Mode");
         if (ImGui::MenuItem("Low pass")) { _triggerParamUpdate(pFilterMode, ui->_pi2f(FMODE_LOW, FMODE_MAX)); }
-#if 0	// FIXME: Does Cetone Synth has no limitations of filter modes? (This behaves differently from Light!)
         switch (ui->_pf2i(ui->fKnobFilterType->getValue(), FTYPE_MAX))
         {
             case FTYPE_DIRTY:
@@ -209,15 +208,11 @@ void ImGuiUI::onImGuiDisplay()
                 ImGui::BeginDisabled();
                 _isSomeModesUnsupported = true;
         }
-#endif
         if (ImGui::MenuItem("Band pass")) { _triggerParamUpdate(pFilterMode, ui->_pi2f(FMODE_BAND, FMODE_MAX)); }
         if (ImGui::MenuItem("High pass")) { _triggerParamUpdate(pFilterMode, ui->_pi2f(FMODE_HIGH, FMODE_MAX)); }
         if (ImGui::MenuItem("Notch")) { _triggerParamUpdate(pFilterMode, ui->_pi2f(FMODE_NOTCH, FMODE_MAX)); }
-
-#if 0
         if (_isSomeModesUnsupported)
             ImGui::EndDisabled();
-#endif
         ImGui::EndPopup();
     }
 
