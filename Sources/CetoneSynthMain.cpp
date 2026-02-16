@@ -359,39 +359,14 @@ void CCetoneSynth::SynthProcess(float **inputs, float **outputs, VstInt32 sample
 		// Factor chosen to balance single-voice volume with polyphonic headroom
 		if (activeCount > 0)
 		{
-			// Divide by ~4.5 provides good balance:
-			// - Single voice has decent volume (comparable to original)
-			// - Multiple voices have headroom before clipping
-			output *= 0.22f;  // Approximately 1/4.5
+			// Per-voice filter application maintains consistent signal level, so we can use a wider normalization factor.
+			// This factor is as same as the monophonic version (who mixes 3 OSCs together)
+			output *= 0.333333f;  // Approximately 1/3
 		}
 
-		// Apply global filter
-		switch(this->FilterType)
-		{
-		default:
-			break;
-		case FTYPE_DIRTY:
-			output = this->FilterDirty->Run(output);
-			break;
-		case FTYPE_MOOG:
-			output = this->FilterMoog->Run(output);
-			break;
-		case FTYPE_MOOG2:
-			output = this->FilterMoog2->Run(output);
-			break;
-		case FTYPE_CH12DB:
-			output = this->FilterCh12db->Run(output);
-			break;
-		case FTYPE_303:
-			output = this->Filter303->Run(output);
-			break;
-		case FTYPE_8580:
-			output = this->Filter8580->Run(output);
-			break;
-		case FTYPE_BUDDA:
-			output = this->FilterBuddawert->Run(output);
-			break;
-		}
+		// NOTE: Filter is now applied per-voice in Voice::Render()
+		// This maintains correct signal chain: oscillators → filter → envelope
+		// Prevents envelope-induced variations from destabilizing high-Q filters
 
 		// Apply global volume and panning
 		output *= m_vol;
@@ -1084,6 +1059,14 @@ void CCetoneSynth::UpdateFilters(float cutoff, float q, float mod)
 	if(this->FilterCounter != FILTER_DELAY)
 		return;
 
+#ifdef ENABLE_POLYPHONY
+	// In polyphonic mode, update per-voice filters
+	for (int v = 0; v < MAX_POLYPHONY; v++)
+	{
+		this->Voices[v]->UpdateFilter(cutoff, q, mod);
+	}
+#else
+	// In monophonic mode, update global filter
 	switch (this->FilterType)
 	{
 	default:
@@ -1110,11 +1093,25 @@ void CCetoneSynth::UpdateFilters(float cutoff, float q, float mod)
 		this->FilterBuddawert->Set(cutoff, q);
 		break;
 	}
+#endif
 
 }
 
 void CCetoneSynth::SetFilterMode(int mode)
 {
+#ifdef ENABLE_POLYPHONY
+	// In polyphonic mode, update per-voice filters
+	for (int v = 0; v < MAX_POLYPHONY; v++)
+	{
+		this->Voices[v]->SetFilterMode(mode);
+	}
+	// Get actual mode from first voice (filters may clamp to supported modes)
+	if (this->maxPolyphony > 0)
+	{
+		mode = this->Voices[0]->GetFilterMode();
+	}
+#else
+	// In monophonic mode, update global filter
 	switch (this->FilterType)
 	{
 	default:
@@ -1148,6 +1145,7 @@ void CCetoneSynth::SetFilterMode(int mode)
 		mode = FMODE_LOW;
 		break;
 	}
+#endif
 
 	this->FilterMode = mode;
 	this->Programs[this->CurrentProgram].FilterMode = mode;
