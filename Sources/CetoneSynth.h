@@ -171,6 +171,7 @@ private:
 	CetoneSynthVoice*	Voices[MAX_POLYPHONY];
 	int					activeVoiceCount;
 	int					maxPolyphony;		// Current max polyphony setting (1-16)
+	float				polyphonyGainCompensation;	// Pre-calculated: 1.0 / sqrt(maxPolyphony)
 #else
 	CSynthOscillator*	Oscs[4];
 	CSynthEnvelope*		Envs[3];
