@@ -5,6 +5,9 @@ project (cetone_synth
     LANGUAGES C CXX
 )
 
+# Generate dynamic metadata file
+configure_file (cmake/metadata.h.in ${PROJECT_BINARY_DIR}/metadata.gen.h @ONLY)
+
 # Options for Cetone build
 option (CETONE_ENABLE_POLYPHONY "Enable polyphonic features of Cetone synthesizer" ON)
 
@@ -17,6 +20,7 @@ include_directories (
     Sources/
     .
 	DPF-Widgets/dpf-imgui/
+    ${PROJECT_BINARY_DIR}
 )
 
 set (SRC_BACKEND
