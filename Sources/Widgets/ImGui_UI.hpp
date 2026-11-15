@@ -18,6 +18,10 @@
 
 #include "DearImGui.hpp"
 
+#include <mutex>
+#include <queue>
+#include <string>
+
 // Forward decls.
 class CCetoneUI;
 
@@ -37,6 +41,13 @@ public:
 
     double userScaling = 1.0f;
 
+    // ----------------------------------------------------------------
+    // Message box stuff
+
+    // Message box queue.
+    // Pushing a string to this queue will trigger a message box popup.
+    std::queue<std::string> messageBoxQueue;
+
     ImGuiUI(TopLevelWidget* const tlw, CCetoneUI* const ui) : 
         ImGuiTopLevelWidget(tlw->getWindow()),
         ui(ui)
@@ -50,4 +61,11 @@ private:
     void _triggerParamUpdate(uint32_t paramId, float newValue);
 
     uint16_t _requestedModParam = 0;
+
+    // -------------------------------------------------------------------
+    // Message box stuff
+
+    bool       _requestMessagePopup = false;
+    void       _handleMessageBoxIdle();
+    std::mutex _messageQueueMutex;
 };

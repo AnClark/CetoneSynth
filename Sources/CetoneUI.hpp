@@ -50,6 +50,11 @@ protected:
 
 	void idleCallback() override;
 
+	// -------------------------------------------------------------------
+	// UI Tools (only invoked by CCetoneUI and its friend classes)
+
+	void logAndShowMessage(const char* fmt, ...);
+
 private:
 	// -------------------------------------------------------------------
 	// Label renderer
@@ -159,6 +164,11 @@ private:
 	int _c_val2modAmount(float value);
 	int _c_val2modMul(float value);
 	int _c_val2midiChannel(float value);
+
+	// -------------------------------------------------------------------
+	// Log / MessageBox helpers
+
+	void _requestMessageBox(std::string message);
 
 	DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CCetoneUI)
 };
