@@ -40,6 +40,11 @@ CetoneSynth was originally a monophonic synth, but I have added polyphony suppor
   - Supports: Windows, macOS, Linux
 - **Multi-format**
   - Provides: VST 2.4, VST3, LV2, CLAP, Standalone ([JACK](https://jackaudio.org/) only)
+- **Preset manager**
+  - Save and load presets in JSON format (`.csynth`), banks stored as `.csynthbank`
+  - Preset manager menu with bank and program support
+  - Import / export via native file dialogs
+  - Optional built-in factory presets (`CETONE_INCLUDE_FACTORY_PRESETS`)
 
 ## How To Build
 
