@@ -38,6 +38,7 @@ add_subdirectory (DPF)
 
 include_directories (
     Sources/
+    Sources/3rdparty/
     .
 	DPF-Widgets/dpf-imgui/
     ${PROJECT_BINARY_DIR}
@@ -80,10 +81,15 @@ dpf_add_plugin (${PROJECT_NAME}
     FILES_UI
         Sources/CetoneUI.cpp
         Sources/CetoneUIHelper.cpp
+        Sources/PresetManager.cpp
+        Sources/PresetManagerHelper.cpp
         Images/CetoneArtwork.cpp
         Fonts/CetoneFonts.cpp
         DPF-Widgets/dpf-imgui/DearImGui.cpp
         Sources/Widgets/ImGui_UI.cpp
+        Sources/Widgets/ImGui_UI_MessageBox.cpp
+        Sources/Widgets/ImGui_UI_FileBrowser.cpp
+        Sources/Widgets/ImGui_UI_PresetManager.cpp
 )
 
 # NOTE: Do not set ENABLE_POLYPHONY globally, as it only affects plugin source files.
@@ -91,6 +97,31 @@ dpf_add_plugin (${PROJECT_NAME}
 if (CETONE_ENABLE_POLYPHONY)
     target_compile_definitions (${PROJECT_NAME}-dsp PRIVATE ENABLE_POLYPHONY)
     target_compile_definitions (${PROJECT_NAME}-ui PRIVATE ENABLE_POLYPHONY)
+endif ()
+
+# Include factory presets converter utility if enabled
+if (CETONE_INCLUDE_FACTORY_PRESETS)
+    set (FACTORY_PRESET_DIR ${PROJECT_SOURCE_DIR}/presets/factory)
+    set (FACTORY_PRESET_HEADER_FILE ${PROJECT_BINARY_DIR}/factory_presets.h)
+
+    target_compile_definitions (${PROJECT_NAME}-ui PRIVATE INCLUDE_FACTORY_PRESETS)
+    target_include_directories (${PROJECT_NAME}-ui PRIVATE ${PROJECT_BINARY_DIR})  # Include directory for generated header
+
+    # Build utility to convert .csynth preset files to C++ header with factory presets
+    add_subdirectory (utils)
+
+    # Generate factory presets header at build time
+    add_custom_command (
+        OUTPUT ${FACTORY_PRESET_HEADER_FILE}
+        COMMAND factory_patch_converter ${FACTORY_PRESET_DIR} ${FACTORY_PRESET_HEADER_FILE}
+        DEPENDS factory_patch_converter
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        COMMENT "Generating factory presets header from .csynth files..."
+    )
+    add_custom_target (generate_factory_presets ALL
+        DEPENDS ${FACTORY_PRESET_HEADER_FILE}
+    )
+    add_dependencies (${PROJECT_NAME}-ui generate_factory_presets)
 endif ()
 
 # CPack stuff

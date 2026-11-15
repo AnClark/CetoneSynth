@@ -116,3 +116,16 @@
 #define MOD_DEST_MAX 16
 
 #define ARP_MAX 7
+
+// Preset Manager Constants
+#define DEFAULT_PRESET_NAME "Init Patch"
+#define PRESET_NO_NAME_FALLBACK "Unnamed Preset"  // In case no name is provided in the preset file
+
+#define DEFAULT_USER_BANK_FILENAME "Default.csynthbank"
+#define DEFAULT_USER_BANK_NAME "Default Bank"
+#define USER_PRESET_FILE_EXTENSION ".csynth"
+#define USER_PRESET_BANK_EXTENSION ".csynthbank"
+#define USER_PRESET_BANK_SUBDIR "Banks"
+
+#define FACTORY_BANK_NAME "Factory"                           // Virtual bank for built-in factory presets (read-only, not stored on disk)
+#define BANK_NAME_FOR_SINGLE_IMPORTED_PRESET "@@@Imported@@@" // Special marker to avoid conflicts with user bank names
