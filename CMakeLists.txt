@@ -17,6 +17,11 @@ configure_file (cmake/metadata.h.in ${PROJECT_BINARY_DIR}/metadata.gen.h @ONLY)
 # Options for Cetone build
 option (CETONE_ENABLE_POLYPHONY "Enable polyphonic features of Cetone synthesizer" ON)
 
+option (CETONE_BUILD_JACK_STANDALONE "Build JACK standalone format" OFF)
+if (CETONE_BUILD_JACK_STANDALONE)
+	set (TARGET_JACK jack)
+endif ()
+
 # GitHub CI's Ubuntu runner cannot directly run lv2-ttl-generator.exe, even though Wine and wine-binfmt is installed.
 # And, LV2 is not so common on Windows (only REAPER, Ardour and Harrison Mixbus support LV2 on Windows).
 # So disable LV2 on Windows by default.
@@ -70,7 +75,7 @@ else ()
 endif ()
 
 dpf_add_plugin (${PROJECT_NAME}
-    TARGETS vst2 vst3 ${TARGET_LV2} clap jack
+    TARGETS vst2 vst3 ${TARGET_LV2} clap ${TARGET_JACK}
     FILES_DSP
         Sources/CetoneSynth.cpp
         Sources/CetoneSynthDPF.cpp
