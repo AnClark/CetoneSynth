@@ -189,6 +189,15 @@ CCetoneUI::CCetoneUI()
     _createHiddenButton(fBtnMod6Dest, pMod6Dest, Size<uint>(45, 10 + 2), Point<int>(210 + 48, 528 + 2 + 110));
     _createHiddenButton(fBtnMod7Dest, pMod7Dest, Size<uint>(45, 10 + 2), Point<int>(418 + 48, 528 + 2 + 110));
     _createHiddenButton(fBtnMod8Dest, pMod8Dest, Size<uint>(45, 10 + 2), Point<int>(622 + 48, 528 + 2 + 110));
+
+    /* Preset Manager initialization */
+    fPresetManager = new CPresetManager(this);
+    fCurrentPresetName = DEFAULT_PRESET_NAME;
+    fCurrentPresetBank = FACTORY_BANK_NAME;
+    fPresetIsModified = false;
+    fPresetNameStateChecked = false;
+    fBankNameStateChecked = false;
+    fPresetManager->loadDefaultBank();
 }
 
 void CCetoneUI::parameterChanged(uint32_t index, float value)
@@ -541,6 +550,46 @@ void CCetoneUI::parameterChanged(uint32_t index, float value)
 	repaint();
 }
 
+void CCetoneUI::stateChanged(const char *key, const char *value)
+{
+    if (std::strcmp(key, STATE_PRESET_NAME) == 0)
+    {
+        fPendingPresetName = value;
+        fPresetNameStateChecked = true;
+    }
+    else if (std::strcmp(key, STATE_PRESET_MODIFIED) == 0)
+    {
+        fPresetIsModified = (std::strcmp(value, "true") == 0) ? true : false;
+    }
+    else if (std::strcmp(key, STATE_PRESET_BANK) == 0)
+    {
+        fPendingBankName = value;
+        fBankNameStateChecked = true;
+    }
+
+    // Validate state when both preset name and bank name have been received
+	// Host may send the state in different order, so we must make shure both of them
+	// have been received.
+    if (fPresetNameStateChecked && fBankNameStateChecked) {
+        if (_validatePresetAndBankState(fPendingPresetName, fPendingBankName)) {
+            fCurrentPresetName = fPendingPresetName;
+            fCurrentPresetBank = fPendingBankName;
+        } else {
+            logAndShowMessage("Current preset '%s' in bank '%s' is no longer valid.\n"
+                              "(May have been removed from disk.)\n"
+                              "Preset name has been reset to default.\n\n"
+                              "Note: Previous param settings may be preserved.\n"
+                              "Click 'Presets' -> 'Save As' if you want to preserve them.",
+                              fPendingPresetName.buffer(), fPendingBankName.buffer());
+            _fallbackToDefaultStateOfPreset();
+            _fallbackToDefaultStateOfBank();
+        }
+
+        fPresetNameStateChecked = false;
+        fBankNameStateChecked = false;
+    }
+}
+
 // -------------------------------------------------------------------
 // Widget Callbacks
 
@@ -637,6 +686,7 @@ void CCetoneUI::imageButtonClicked(ImageButton* button, int)
 void CCetoneUI::imageSwitchClicked(ImageSwitch* button, bool down)
 {
 	setParameterValue(button->getId(), down);
+	_updateState(true); // Mark preset as modified when any parameter is changed
 }
 
 void CCetoneUI::imageKnobDragStarted(ImageKnob* knob)
@@ -652,6 +702,7 @@ void CCetoneUI::imageKnobDragFinished(ImageKnob* knob)
 void CCetoneUI::imageKnobValueChanged(ImageKnob* knob, float value)
 {
 	setParameterValue(knob->getId(), value);
+	_updateState(true); // Mark preset as modified when any parameter is changed
 
 	// Explicitly ask DPF to redraw UI (for updating labels)
 	repaint();

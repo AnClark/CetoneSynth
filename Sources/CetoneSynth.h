@@ -75,12 +75,15 @@ public:
 	// Init
 
 	void initParameter(uint32_t index, Parameter& parameter) override;
+	void initState(uint32_t index, State& state) override;
 
 	// ---------------------------------------
 	// Internal data
 
 	float getParameterValue(uint32_t index) const override;
 	void  setParameterValue(uint32_t index, float value) override;
+	String getState(const char* key) const override;
+	void   setState(const char* key, const char* value) override;
 
 	// ---------------------------------------
 	// Audio/MIDI Processing
@@ -322,4 +325,11 @@ private:
 	void				SetPortaSpeed(float speed);
 	void				UpdateEnvelopes();
 	void				SetCutoffSave(float value);
+
+	// ---------------------------------------
+	// Preset state storage (used by DPF state persistence mechanism)
+
+	String PresetName;      // Current preset name
+	bool   PresetModified;  // Whether the current preset has been modified
+	String PresetBank;      // Which bank the current preset comes from
 };

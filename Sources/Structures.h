@@ -90,6 +90,10 @@ struct SynthProgram
 	SynthModulation	Modulations[8];
 
 	float			EnvMod;
+
+#ifdef ENABLE_POLYPHONY
+	int				MaxPolyphony;	// Maximum number of polyphonic voices (1-16)
+#endif
 };
 
 enum PARAMETERS
@@ -217,3 +221,11 @@ enum PARAMETERS
 
 	pParameters
 };
+
+// -----------------------------------------------------------------------
+// Preset state constants (used by DPF state system)
+
+constexpr auto STATE_COUNT = 3;
+static const char* STATE_PRESET_NAME     = "presetName";
+static const char* STATE_PRESET_MODIFIED = "presetModified";
+static const char* STATE_PRESET_BANK     = "presetBank";

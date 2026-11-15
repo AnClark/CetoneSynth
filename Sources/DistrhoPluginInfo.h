@@ -43,6 +43,9 @@
 
 #define DISTRHO_PLUGIN_WANT_TIMEPOS 1  // BPM monitor support
 
+#define DISTRHO_PLUGIN_WANT_STATE 1
+#define DISTRHO_PLUGIN_WANT_FULL_STATE 1
+
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED
 
 // end of DistrhoPluginInfo.h

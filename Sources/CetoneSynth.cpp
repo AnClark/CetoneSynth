@@ -65,7 +65,7 @@ int	CCetoneSynth::C64Arps[8][16] =	{
 		{0,  7, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  3}};
 
 CCetoneSynth::CCetoneSynth() 
-: DISTRHO::Plugin(pParameters, 0, 0)	// params, programs, states
+: DISTRHO::Plugin(pParameters, 0, STATE_COUNT)	// params, programs, states
 {
 	CCetoneSynth::Pi				=	4.f * atanf(1.f);	
 	CCetoneSynth::SampleRate		=	44100.f;
