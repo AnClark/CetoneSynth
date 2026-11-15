@@ -43,6 +43,7 @@ void ImGuiUI::onImGuiDisplay()
 
                 ImGui::SeparatorText("License");
                 ImGui::BulletText("This project is licensed under GNU General Public License, version 3.");
+				ImGui::BulletText("VST is a trademark of Steinberg GmbH.");
 
                 ImGui::Text("\n");
                 ImGui::Dummy(ImVec2(490, 0));
