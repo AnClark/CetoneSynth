@@ -27,7 +27,7 @@
 #include "Images/CetoneArtwork.hpp"    // IWYU pragma: keep
 
 #define DISTRHO_PLUGIN_BRAND "Neotec Software, AnClark Liu"
-#define DISTRHO_PLUGIN_NAME "Cetone Synth"
+#define DISTRHO_PLUGIN_NAME "CetoneSynth"
 #define DISTRHO_PLUGIN_URI "https://github.com/AnClark/CetoneSynth"
 #define DISTRHO_PLUGIN_CLAP_ID "neotec.cetone.synth"
 
