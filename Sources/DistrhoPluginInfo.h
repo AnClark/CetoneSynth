@@ -22,6 +22,8 @@
 #ifndef DISTRHO_PLUGIN_INFO_H_INCLUDED
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
+#include "Images/CetoneArtwork.hpp"    // IWYU pragma: keep
+
 #define DISTRHO_PLUGIN_BRAND "Neotec Software, AnClark Liu"
 #define DISTRHO_PLUGIN_NAME "Cetone Synth"
 #define DISTRHO_PLUGIN_URI "https://github.com/AnClark/CetoneSynth"
@@ -33,8 +35,8 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS 2
 
 #define DISTRHO_PLUGIN_HAS_UI 1
-#define DISTRHO_DEFAULT_UI_HEIGHT 868
-#define DISTRHO_DEFAULT_UI_WIDTH 444
+#define DISTRHO_UI_DEFAULT_WIDTH  CetoneArtwork::guiWidth
+#define DISTRHO_UI_DEFAULT_HEIGHT CetoneArtwork::guiHeight
 #define DISTRHO_UI_USER_RESIZABLE 0
 
 #define DISTRHO_PLUGIN_WANT_TIMEPOS 1  // BPM monitor support
